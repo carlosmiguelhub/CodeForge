@@ -1,0 +1,49 @@
+name: sqweb-local
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: sqweb-local-mysql
+    restart: unless-stopped
+    env_file:
+      - .env.mysql.local
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - sqweb_mysql_data:/var/lib/mysql
+      - ../../packages/database-platform/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  workspace-mysql:
+    image: mysql:8.4
+    container_name: sqweb-local-workspace-mysql
+    restart: unless-stopped
+    env_file:
+      - .env.workspace-mysql.local
+    ports:
+      - "127.0.0.1:3308:3306"
+    volumes:
+      - sqweb_workspace_mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  sqweb_mysql_data:
+  sqweb_workspace_mysql_data:

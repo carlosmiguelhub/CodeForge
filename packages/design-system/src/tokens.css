@@ -1,0 +1,66 @@
+@theme {
+  --color-canvas: #070708;
+  --color-deep: #080809;
+  --color-sidebar: #0d0e0f;
+  --color-surface: #101112;
+  --color-panel: #111214;
+  --color-elevated: #151617;
+  --color-elevated-high: #191a1c;
+  --color-divider: #1b1c1e;
+  --color-structural: #232426;
+  --color-ink-primary: #f0f1f2;
+  --color-ink: #e5e2e3;
+  --color-ink-secondary: #c6c5d8;
+  --color-ink-muted: #9a9da3;
+  --color-ink-disabled: #676977;
+  --color-action: #5e6bff;
+  --color-action-soft: #bec2ff;
+  --color-info: #50d8e9;
+  --color-warning: #ffb689;
+  --color-success: #e5fd17;
+  --color-danger: #ffb4ab;
+  --color-danger-container: #93000a;
+
+  --font-heading: "Manrope Variable", "Manrope", sans-serif;
+  --font-sans: "Inter Variable", "Inter", sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-control: 0.25rem;
+  --radius-menu: 0.375rem;
+  --radius-panel: 0.5rem;
+
+  --spacing-safe: 2rem;
+  --spacing-gutter: 1.25rem;
+
+  --animate-running: running-pulse 1.6s ease-in-out infinite;
+}
+
+:root {
+  color-scheme: dark;
+  --focus-ring: #50d8e9;
+  --overlay-surface: rgb(21 22 23 / 92%);
+  --transition-fast: 120ms;
+  --transition-standard: 180ms;
+}
+
+@keyframes running-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

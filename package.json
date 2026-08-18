@@ -1,0 +1,48 @@
+{
+  "name": "sqweb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Secure browser-based MySQL classroom workbench",
+  "engines": {
+    "node": ">=22.12.0 <25"
+  },
+  "packageManager": "npm@11.8.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "audit:production": "npm audit --omit=dev --omit=optional",
+    "dev": "npm run dev --workspace @sqweb/web",
+    "dev:api:local": "tsx --env-file=apps/platform-api/.env.local apps/platform-api/src/main.ts",
+    "dev:worker:local": "tsx --env-file=apps/provisioning-worker/.env.local apps/provisioning-worker/src/main.ts",
+    "local:bootstrap": "tsx --env-file=apps/platform-api/.env.local scripts/bootstrap-local.ts",
+    "local:migrate:workspace": "tsx --env-file=apps/platform-api/.env.local scripts/apply-workspace-migration-local.ts",
+    "local:db:up": "docker compose -f infrastructure/local/compose.yaml up -d",
+    "local:firebase": "firebase emulators:start --only auth --project sqweb-5b004",
+    "local:smoke": "tsx --env-file=apps/platform-api/.env.local scripts/smoke-local.ts",
+    "local:smoke:workspace": "tsx --env-file=apps/platform-api/.env.local --env-file=apps/provisioning-worker/.env.local scripts/smoke-workspace-local.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "axe-core": "4.13.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.1",
+    "jsdom": "29.1.1",
+    "prettier": "3.9.6",
+    "prettier-plugin-tailwindcss": "0.8.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

@@ -1,0 +1,121 @@
+[
+  {
+    "id": "allow-select-basic",
+    "description": "Ordinary workspace query",
+    "sql": "SELECT id, name FROM students ORDER BY id",
+    "expectedDecision": "allow",
+    "category": "read"
+  },
+  {
+    "id": "allow-insert-basic",
+    "description": "Ordinary data insertion",
+    "sql": "INSERT INTO students (id, name) VALUES (1, 'Ada')",
+    "expectedDecision": "allow",
+    "category": "write"
+  },
+  {
+    "id": "allow-transaction",
+    "description": "Approved transaction control",
+    "sql": "START TRANSACTION; UPDATE students SET name = 'Grace' WHERE id = 1; ROLLBACK",
+    "expectedDecision": "allow",
+    "category": "transaction"
+  },
+  {
+    "id": "allow-table-ddl-policy-dependent",
+    "description": "Table DDL is eligible only when activity policy enables it",
+    "sql": "CREATE TABLE practice_notes (id INT PRIMARY KEY, note VARCHAR(100))",
+    "expectedDecision": "allow",
+    "category": "ddl"
+  },
+  {
+    "id": "deny-use-schema",
+    "description": "Client cannot change the server-bound database",
+    "sql": "USE another_workspace",
+    "expectedDecision": "deny",
+    "category": "cross_schema"
+  },
+  {
+    "id": "deny-qualified-cross-schema",
+    "description": "Cross-schema object reference",
+    "sql": "SELECT * FROM another_workspace.students",
+    "expectedDecision": "deny",
+    "category": "cross_schema"
+  },
+  {
+    "id": "deny-system-schema",
+    "description": "System schema access",
+    "sql": "SELECT user, host FROM mysql.user",
+    "expectedDecision": "deny",
+    "category": "cross_schema"
+  },
+  {
+    "id": "deny-create-user",
+    "description": "Account management",
+    "sql": "CREATE USER 'attacker'@'%' IDENTIFIED BY 'secret'",
+    "expectedDecision": "deny",
+    "category": "account_admin"
+  },
+  {
+    "id": "deny-grant",
+    "description": "Privilege administration",
+    "sql": "GRANT ALL ON *.* TO 'attacker'@'%'",
+    "expectedDecision": "deny",
+    "category": "account_admin"
+  },
+  {
+    "id": "deny-kill",
+    "description": "User SQL cannot cancel arbitrary connections",
+    "sql": "KILL QUERY 42",
+    "expectedDecision": "deny",
+    "category": "server_admin"
+  },
+  {
+    "id": "deny-load-data-infile",
+    "description": "Server-side file access",
+    "sql": "LOAD DATA INFILE '/etc/passwd' INTO TABLE students",
+    "expectedDecision": "deny",
+    "category": "file_access"
+  },
+  {
+    "id": "deny-select-into-outfile",
+    "description": "Server-side file write",
+    "sql": "SELECT * FROM students INTO OUTFILE '/tmp/export.csv'",
+    "expectedDecision": "deny",
+    "category": "file_access"
+  },
+  {
+    "id": "deny-procedure",
+    "description": "Persistent stored code is outside MVP policy",
+    "sql": "CREATE PROCEDURE p() SELECT 1",
+    "expectedDecision": "deny",
+    "category": "persistent_code"
+  },
+  {
+    "id": "deny-trigger",
+    "description": "Triggers are outside MVP policy",
+    "sql": "CREATE TRIGGER t BEFORE INSERT ON students FOR EACH ROW SET NEW.name = UPPER(NEW.name)",
+    "expectedDecision": "deny",
+    "category": "persistent_code"
+  },
+  {
+    "id": "deny-comment-evasion",
+    "description": "Comments cannot conceal account administration",
+    "sql": "GR/**/ANT ALL ON *.* TO 'attacker'@'%'",
+    "expectedDecision": "deny",
+    "category": "parser_evasion"
+  },
+  {
+    "id": "deny-versioned-comment",
+    "description": "MySQL executable comments are parsed as executable SQL",
+    "sql": "/*!50000 CREATE USER 'attacker'@'%' IDENTIFIED BY 'secret' */",
+    "expectedDecision": "deny",
+    "category": "parser_evasion"
+  },
+  {
+    "id": "deny-multistatement-hidden-command",
+    "description": "An allowed first statement cannot conceal a denied second statement",
+    "sql": "SELECT 1; DROP USER 'root'@'localhost'",
+    "expectedDecision": "deny",
+    "category": "parser_evasion"
+  }
+]

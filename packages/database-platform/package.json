@@ -1,0 +1,21 @@
+{
+  "name": "@sqweb/database-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sqweb/auth": "0.1.0",
+    "@sqweb/classroom": "0.1.0",
+    "@sqweb/workspace": "0.1.0",
+    "@sqweb/contracts": "0.1.0",
+    "drizzle-orm": "0.45.2",
+    "mysql2": "3.23.3"
+  }
+}

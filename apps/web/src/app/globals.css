@@ -1,0 +1,53 @@
+@import "tailwindcss";
+@import "@sqweb/design-system/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-canvas);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:not(:disabled),
+[href],
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-action) 45%, transparent);
+  color: var(--color-ink-primary);
+}
+
+* {
+  scrollbar-color: var(--color-structural) var(--color-deep);
+  scrollbar-width: thin;
+}
+
+.heading-balance {
+  text-wrap: balance;
+}
