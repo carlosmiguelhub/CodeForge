@@ -163,81 +163,83 @@ export function WorkspaceList({
 
       {workspaces.map((workspace) => (
         <div key={workspace.id} className="space-y-5">
-          <article className="border-structural bg-surface rounded-panel overflow-hidden border">
-            <div className="border-divider flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="border-divider bg-elevated text-action-soft rounded-control grid size-9 place-items-center border">
-                  <Database aria-hidden="true" size={16} />
-                </span>
-                <div>
-                  <h3 className="text-ink-primary text-sm font-semibold">
-                    Personal workspace
-                  </h3>
-                  <p className="text-ink-muted font-mono text-[11px]">
-                    {workspace.id}
-                  </p>
+          {workspace.state !== "ready" ? (
+            <article className="border-structural bg-surface rounded-panel overflow-hidden border">
+              <div className="border-divider flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="border-divider bg-elevated text-action-soft rounded-control grid size-9 place-items-center border">
+                    <Database aria-hidden="true" size={16} />
+                  </span>
+                  <div>
+                    <h3 className="text-ink-primary text-sm font-semibold">
+                      Personal workspace
+                    </h3>
+                    <p className="text-ink-muted font-mono text-[11px]">
+                      {workspace.id}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <span className="text-ink-secondary flex items-center gap-2 text-xs capitalize">
-                <span
-                  aria-hidden="true"
-                  className="bg-info size-1.5 rounded-full"
-                />
-                {stateLabel(workspace.state)}
-              </span>
-            </div>
-            <dl className="grid gap-px bg-[var(--color-divider)] sm:grid-cols-3">
-              <div className="bg-surface p-4">
-                <dt className="text-ink-muted text-[11px] uppercase">
-                  Storage limit
-                </dt>
-                <dd className="text-ink-primary mt-1 font-mono text-sm">
-                  {Math.round(workspace.quotaBytes / 1024 / 1024)} MB
-                </dd>
-              </div>
-              <div className="bg-surface p-4">
-                <dt className="text-ink-muted text-[11px] uppercase">
-                  Isolation
-                </dt>
-                <dd className="text-ink-primary mt-1 text-sm">
-                  Private database + account
-                </dd>
-              </div>
-              <div className="bg-surface p-4">
-                <dt className="text-ink-muted text-[11px] uppercase">
-                  Updated
-                </dt>
-                <dd className="text-ink-primary mt-1 text-sm">
-                  {new Date(workspace.updatedAt).toLocaleString()}
-                </dd>
-              </div>
-            </dl>
-            {["ready", "failed"].includes(workspace.state) ? (
-              <form
-                onSubmit={(event) => void resetWorkspace(event, workspace.id)}
-                className="border-divider grid gap-3 border-t p-4 sm:grid-cols-[1fr_auto] sm:items-end"
-              >
-                <label className="text-ink-muted grid gap-1.5 text-xs">
-                  Reset reason
-                  <input
-                    name="reason"
-                    required
-                    minLength={8}
-                    maxLength={500}
-                    disabled={busy}
-                    placeholder="Explain why a clean workspace is needed"
-                    className="border-divider bg-elevated text-ink-primary rounded-control min-h-10 border px-3"
+                <span className="text-ink-secondary flex items-center gap-2 text-xs capitalize">
+                  <span
+                    aria-hidden="true"
+                    className="bg-info size-1.5 rounded-full"
                   />
-                </label>
-                <button
-                  disabled={busy}
-                  className="border-structural text-ink-secondary hover:text-ink-primary rounded-control flex min-h-10 items-center justify-center gap-2 border px-4 text-xs disabled:opacity-50"
+                  {stateLabel(workspace.state)}
+                </span>
+              </div>
+              <dl className="grid gap-px bg-[var(--color-divider)] sm:grid-cols-3">
+                <div className="bg-surface p-4">
+                  <dt className="text-ink-muted text-[11px] uppercase">
+                    Storage limit
+                  </dt>
+                  <dd className="text-ink-primary mt-1 font-mono text-sm">
+                    {Math.round(workspace.quotaBytes / 1024 / 1024)} MB
+                  </dd>
+                </div>
+                <div className="bg-surface p-4">
+                  <dt className="text-ink-muted text-[11px] uppercase">
+                    Isolation
+                  </dt>
+                  <dd className="text-ink-primary mt-1 text-sm">
+                    Private database + account
+                  </dd>
+                </div>
+                <div className="bg-surface p-4">
+                  <dt className="text-ink-muted text-[11px] uppercase">
+                    Updated
+                  </dt>
+                  <dd className="text-ink-primary mt-1 text-sm">
+                    {new Date(workspace.updatedAt).toLocaleString()}
+                  </dd>
+                </div>
+              </dl>
+              {workspace.state === "failed" ? (
+                <form
+                  onSubmit={(event) => void resetWorkspace(event, workspace.id)}
+                  className="border-divider grid gap-3 border-t p-4 sm:grid-cols-[1fr_auto] sm:items-end"
                 >
-                  <RotateCcw aria-hidden="true" size={14} /> Reset safely
-                </button>
-              </form>
-            ) : null}
-          </article>
+                  <label className="text-ink-muted grid gap-1.5 text-xs">
+                    Reset reason
+                    <input
+                      name="reason"
+                      required
+                      minLength={8}
+                      maxLength={500}
+                      disabled={busy}
+                      placeholder="Explain why a clean workspace is needed"
+                      className="border-divider bg-elevated text-ink-primary rounded-control min-h-10 border px-3"
+                    />
+                  </label>
+                  <button
+                    disabled={busy}
+                    className="border-structural text-ink-secondary hover:text-ink-primary rounded-control flex min-h-10 items-center justify-center gap-2 border px-4 text-xs disabled:opacity-50"
+                  >
+                    <RotateCcw aria-hidden="true" size={14} /> Reset safely
+                  </button>
+                </form>
+              ) : null}
+            </article>
+          ) : null}
           {workspace.state === "ready" ? (
             <SqlWorkbench workspaceId={workspace.id} />
           ) : null}
