@@ -57,6 +57,39 @@ function safeCell(value: unknown): string | number | boolean | null {
   return JSON.stringify(value).slice(0, 10_000);
 }
 
+const mysqlTypeNames: Readonly<Record<number, string>> = {
+  0: "DECIMAL",
+  1: "TINYINT",
+  2: "SMALLINT",
+  3: "INT",
+  4: "FLOAT",
+  5: "DOUBLE",
+  6: "NULL",
+  7: "TIMESTAMP",
+  8: "BIGINT",
+  9: "MEDIUMINT",
+  10: "DATE",
+  11: "TIME",
+  12: "DATETIME",
+  13: "YEAR",
+  15: "VARCHAR",
+  16: "BIT",
+  245: "JSON",
+  246: "DECIMAL",
+  249: "TINYBLOB",
+  250: "MEDIUMBLOB",
+  251: "LONGBLOB",
+  252: "TEXT/BLOB",
+  253: "VARCHAR",
+  254: "CHAR/BINARY",
+  255: "GEOMETRY",
+};
+
+function mysqlTypeName(type: number | undefined) {
+  if (type === undefined) return "UNKNOWN";
+  return mysqlTypeNames[type] ?? `MYSQL_${type}`;
+}
+
 function connect(credential: WorkspaceCredential): Promise<Connection> {
   return new Promise((resolve, reject) => {
     const connection = createConnection(connectionOptions(credential));
@@ -158,7 +191,7 @@ export class MySqlRunner {
           resultSets[index] ??= {
             columns: fields.map((field) => ({
               name: field.name,
-              type: String(field.type),
+              type: mysqlTypeName(field.type),
             })),
             rows: [],
             affectedRows: 0,

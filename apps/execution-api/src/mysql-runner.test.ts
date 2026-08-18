@@ -56,7 +56,7 @@ describe("MySqlRunner result collection", () => {
 
     expect(result.resultSets).toEqual([
       {
-        columns: [{ name: "answer", type: "3" }],
+        columns: [{ name: "answer", type: "INT" }],
         rows: [[2]],
         affectedRows: 0,
         warningCount: 0,

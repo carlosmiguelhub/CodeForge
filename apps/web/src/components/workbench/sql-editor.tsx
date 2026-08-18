@@ -101,6 +101,11 @@ export const SqlEditor = forwardRef<
     };
   }, [fontSize]);
 
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (editor && editor.getValue() !== value) editor.setValue(value);
+  }, [value]);
+
   return (
     <div
       ref={hostRef}

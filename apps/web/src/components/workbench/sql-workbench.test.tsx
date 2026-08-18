@@ -1,5 +1,5 @@
 import axe from "axe-core";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -19,31 +19,61 @@ const mocks = vi.hoisted(() => ({
         }),
       ),
   ),
-  executionFetch: vi.fn(
-    async (path: string) =>
-      new Response(
-        JSON.stringify(
-          path.includes("schema")
-            ? {
-                tables: [
-                  {
-                    name: "students",
-                    type: "table",
-                    columns: [
-                      {
-                        name: "id",
-                        dataType: "int",
-                        nullable: false,
-                        key: "PRI",
-                      },
-                    ],
-                  },
-                ],
-              }
-            : [],
-        ),
-      ),
-  ),
+  executionFetch: vi.fn(async (path: string, _init?: RequestInit) => {
+    void _init;
+    if (path.includes("schema"))
+      return new Response(
+        JSON.stringify({
+          tables: [
+            {
+              name: "students",
+              type: "table",
+              columns: [
+                {
+                  name: "id",
+                  dataType: "int",
+                  nullable: false,
+                  key: "PRI",
+                },
+                {
+                  name: "name",
+                  dataType: "varchar",
+                  nullable: false,
+                  key: "",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+    if (path === "/v1/executions")
+      return new Response(
+        JSON.stringify({
+          executionId: "00000000-0000-4000-8000-000000000030",
+          state: "successful",
+          resultSets: [
+            {
+              columns: [
+                { name: "id", type: "3" },
+                { name: "name", type: "253" },
+              ],
+              rows: [[1, "Alice"]],
+              affectedRows: 0,
+              warningCount: 0,
+              truncated: false,
+            },
+          ],
+          messages: [],
+          statistics: {
+            durationMs: 4,
+            rowsReturned: 1,
+            bytesReturned: 11,
+            statementCount: 1,
+          },
+        }),
+      );
+    return new Response(JSON.stringify([]));
+  }),
 }));
 
 vi.mock("@/components/auth/auth-provider", () => ({
@@ -65,5 +95,24 @@ describe("SqlWorkbench", () => {
       rules: { "color-contrast": { enabled: false } },
     });
     expect(results.violations).toEqual([]);
+  });
+
+  it("previews a table when its explorer row is selected", async () => {
+    const { getByRole, getByText } = render(
+      <SqlWorkbench workspaceId="00000000-0000-4000-8000-000000000020" />,
+    );
+    await waitFor(() => expect(getByText(/Connected/)).toBeInTheDocument());
+
+    fireEvent.click(
+      getByRole("button", { name: "Preview rows from students" }),
+    );
+
+    await waitFor(() => expect(getByText("Alice")).toBeInTheDocument());
+    const executionCall = mocks.executionFetch.mock.calls.find(
+      ([path]) => path === "/v1/executions",
+    );
+    expect(executionCall?.[1]?.body).toContain(
+      "SELECT * FROM `students` LIMIT 100;",
+    );
   });
 });

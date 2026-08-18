@@ -13,9 +13,11 @@ import {
   ChevronRight,
   CircleStop,
   Database,
+  Eye,
   Expand,
   FilePlus2,
   History,
+  KeyRound,
   ListTree,
   Maximize2,
   MessageSquareText,
@@ -55,6 +57,10 @@ interface HistoryItem {
 const starterSql = `-- Your isolated MySQL workspace is ready.
 SELECT 'Hello from SQWeb' AS message, CURRENT_TIMESTAMP AS executed_at;`;
 
+function quoteIdentifier(identifier: string) {
+  return `\`${identifier.replaceAll("`", "``")}\``;
+}
+
 export function SqlWorkbench({
   workspaceId,
 }: Readonly<{ workspaceId: string }>) {
@@ -65,6 +71,7 @@ export function SqlWorkbench({
   const [activeTabId, setActiveTabId] = useState(() => tabs[0]?.id ?? "");
   const [schema, setSchema] = useState<WorkspaceSchemaResponse>({ tables: [] });
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [result, setResult] = useState<ExecutionResponse | null>(null);
   const [resultSetIndex, setResultSetIndex] = useState(0);
   const [history, setHistory] = useState<readonly HistoryItem[]>([]);
@@ -137,6 +144,15 @@ export function SqlWorkbench({
     setTabs((current) =>
       current.map((tab) => (tab.id === activeTabId ? { ...tab, sql } : tab)),
     );
+  }
+
+  function previewTable(tableName: string) {
+    const sql = `SELECT * FROM ${quoteIdentifier(tableName)} LIMIT 100;`;
+    setSelectedTable(tableName);
+    setExpanded((current) => new Set(current).add(tableName));
+    updateActiveSql(sql);
+    setMobileSchemaOpen(false);
+    void execute(sql, "current");
   }
 
   async function execute(
@@ -379,7 +395,12 @@ export function SqlWorkbench({
           </div>
           <div className="p-2">
             <div className="text-ink-muted flex items-center gap-2 px-2 py-1.5 text-xs">
-              <Database aria-hidden="true" size={13} /> workspace
+              <Database aria-hidden="true" size={13} />
+              <span>workspace</span>
+              <span className="ml-auto font-mono text-[10px]">
+                {schema.tables.length}{" "}
+                {schema.tables.length === 1 ? "table" : "tables"}
+              </span>
             </div>
             {schema.tables.length === 0 ? (
               <p className="text-ink-muted px-2 py-3 text-[11px]">
@@ -388,47 +409,99 @@ export function SqlWorkbench({
             ) : null}
             {schema.tables.map((table) => {
               const open = expanded.has(table.name);
+              const selected = selectedTable === table.name;
               return (
-                <div key={table.name}>
-                  <button
-                    onClick={() =>
-                      setExpanded((current) => {
-                        const next = new Set(current);
-                        if (next.has(table.name)) next.delete(table.name);
-                        else next.add(table.name);
-                        return next;
-                      })
-                    }
-                    className="text-ink-secondary hover:bg-elevated flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs"
-                  >
-                    {open ? (
-                      <ChevronDown aria-hidden="true" size={12} />
-                    ) : (
-                      <ChevronRight aria-hidden="true" size={12} />
-                    )}
-                    <Table2 aria-hidden="true" size={13} /> {table.name}
-                  </button>
+                <div
+                  key={table.name}
+                  className={`${selected ? "bg-elevated" : ""} rounded-control mb-0.5 overflow-hidden`}
+                >
+                  <div className="flex min-h-9 items-center px-1">
+                    <button
+                      onClick={() =>
+                        setExpanded((current) => {
+                          const next = new Set(current);
+                          if (next.has(table.name)) next.delete(table.name);
+                          else next.add(table.name);
+                          return next;
+                        })
+                      }
+                      aria-label={`${open ? "Collapse" : "Expand"} ${table.name} structure`}
+                      aria-expanded={open}
+                      className="text-ink-muted grid size-8 shrink-0 place-items-center"
+                    >
+                      {open ? (
+                        <ChevronDown aria-hidden="true" size={12} />
+                      ) : (
+                        <ChevronRight aria-hidden="true" size={12} />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => previewTable(table.name)}
+                      disabled={running}
+                      aria-label={`Preview rows from ${table.name}`}
+                      className="text-ink-secondary flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-xs disabled:opacity-50"
+                    >
+                      <Table2 aria-hidden="true" size={13} />
+                      <span className="truncate font-medium">{table.name}</span>
+                      <span className="text-ink-muted ml-auto font-mono text-[9px]">
+                        {table.columns.length} cols
+                      </span>
+                    </button>
+                  </div>
                   {open ? (
-                    <div className="border-divider ml-4 border-l pl-3">
+                    <div className="border-divider ml-5 border-l pr-2 pb-2 pl-3">
                       {table.columns.map((column, columnIndex) => (
                         <div
                           key={`${table.name}:${column.name}:${columnIndex}`}
-                          className="text-ink-muted flex justify-between gap-2 py-1 text-[11px]"
+                          className="text-ink-muted flex min-h-7 items-center gap-2 text-[11px]"
                         >
-                          <span className="truncate">{column.name}</span>
-                          <span className="font-mono">{column.dataType}</span>
+                          {column.key === "PRI" ? (
+                            <KeyRound
+                              aria-hidden="true"
+                              className="text-warning shrink-0"
+                              size={11}
+                            />
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className="border-structural size-2.5 shrink-0 rounded-full border"
+                            />
+                          )}
+                          {column.key === "PRI" ? (
+                            <span className="sr-only">Primary key</span>
+                          ) : null}
+                          <span className="min-w-0 flex-1 truncate">
+                            {column.name}
+                          </span>
+                          <span className="text-action-soft font-mono text-[9px]">
+                            {column.dataType}
+                          </span>
+                          {column.nullable ? (
+                            <span className="text-ink-muted text-[8px] uppercase">
+                              null
+                            </span>
+                          ) : null}
                         </div>
                       ))}
-                      <button
-                        onClick={() =>
-                          updateActiveSql(
-                            `${activeTab?.sql ?? ""}\nSELECT * FROM \`${table.name}\`;`,
-                          )
-                        }
-                        className="text-action-soft py-1 text-[11px]"
-                      >
-                        Insert SELECT
-                      </button>
+                      <div className="mt-1 flex items-center gap-1">
+                        <button
+                          onClick={() => previewTable(table.name)}
+                          disabled={running}
+                          className="text-action-soft hover:bg-elevated-high rounded-control flex min-h-8 items-center gap-1.5 px-2 text-[10px] disabled:opacity-50"
+                        >
+                          <Eye aria-hidden="true" size={11} /> View rows
+                        </button>
+                        <button
+                          onClick={() =>
+                            updateActiveSql(
+                              `SELECT * FROM ${quoteIdentifier(table.name)} LIMIT 100;`,
+                            )
+                          }
+                          className="text-ink-muted hover:bg-elevated-high rounded-control min-h-8 px-2 text-[10px]"
+                        >
+                          Insert SQL
+                        </button>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -627,23 +700,40 @@ export function SqlWorkbench({
             ) : null}
             {schema.tables.map((table) => (
               <div key={table.name} className="border-divider border-b py-2">
-                <div className="text-ink-secondary flex items-center gap-2 px-2 py-1 text-xs font-semibold">
-                  <Table2 aria-hidden="true" size={13} /> {table.name}
-                </div>
+                <button
+                  onClick={() => previewTable(table.name)}
+                  disabled={running}
+                  className="text-ink-secondary flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-semibold disabled:opacity-50"
+                >
+                  <Table2 aria-hidden="true" size={13} />
+                  <span className="truncate">{table.name}</span>
+                  <span className="text-ink-muted ml-auto font-mono text-[10px]">
+                    {table.columns.length} columns
+                  </span>
+                </button>
                 <p className="text-ink-muted truncate px-2 text-[11px]">
                   {table.columns.map((column) => column.name).join(", ")}
                 </p>
-                <button
-                  onClick={() => {
-                    updateActiveSql(
-                      `${activeTab?.sql ?? ""}\nSELECT * FROM \`${table.name}\`;`,
-                    );
-                    setMobileSchemaOpen(false);
-                  }}
-                  className="text-action-soft min-h-9 px-2 text-[11px]"
-                >
-                  Insert SELECT
-                </button>
+                <div className="mt-1 flex gap-1 px-1">
+                  <button
+                    onClick={() => previewTable(table.name)}
+                    disabled={running}
+                    className="text-action-soft flex min-h-9 items-center gap-1.5 px-2 text-[11px] disabled:opacity-50"
+                  >
+                    <Eye aria-hidden="true" size={12} /> View rows
+                  </button>
+                  <button
+                    onClick={() => {
+                      updateActiveSql(
+                        `SELECT * FROM ${quoteIdentifier(table.name)} LIMIT 100;`,
+                      );
+                      setMobileSchemaOpen(false);
+                    }}
+                    className="text-ink-muted min-h-9 px-2 text-[11px]"
+                  >
+                    Insert SQL
+                  </button>
+                </div>
               </div>
             ))}
           </aside>
