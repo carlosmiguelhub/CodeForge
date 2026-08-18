@@ -107,6 +107,30 @@ async function main() {
       `Allowed DDL did not execute successfully: ${JSON.stringify(create.payload)}`,
     );
 
+  const schemaGrant = await grant(token, workspace.id);
+  const createdSchemaResponse = await fetch(
+    `${executionUrl}/v1/workspaces/${workspace.id}/schema`,
+    {
+      headers: headers(token, {
+        "X-SQWeb-Execution-Grant": schemaGrant,
+      }),
+    },
+  );
+  const createdSchema = (await createdSchemaResponse.json()) as {
+    tables?: Array<{
+      name?: string;
+      columns?: Array<{ name?: string }>;
+    }>;
+  };
+  const probeTable = createdSchema.tables?.find(
+    (table) => table.name === "m5_execution_probe",
+  );
+  if (
+    !createdSchemaResponse.ok ||
+    probeTable?.columns?.map((column) => column.name).join(",") !== "id,label"
+  )
+    throw new Error("Schema discovery did not return named table columns.");
+
   const sampleId = Math.floor(Date.now() / 1000);
   const multi = await execute(
     token,

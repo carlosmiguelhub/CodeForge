@@ -65,4 +65,45 @@ describe("MySqlRunner result collection", () => {
     ]);
     expect(result.rowsReturned).toBe(1);
   });
+
+  it("requests schema metadata as named rows even when execution uses arrays", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([[{ name: "students", type: "BASE TABLE" }], []])
+      .mockResolvedValueOnce([
+        [
+          {
+            table_name: "students",
+            name: "id",
+            data_type: "int",
+            nullable: "NO",
+            column_key: "PRI",
+          },
+        ],
+        [],
+      ]);
+    const connection = {
+      connect: vi.fn((callback: (error?: Error) => void) => callback()),
+      promise: vi.fn(() => ({ query })),
+      destroy: vi.fn(),
+    };
+    mysql.createConnection.mockReturnValue(connection);
+
+    const schema = await new MySqlRunner().schema(credential);
+
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[0]?.[0]).toMatchObject({ rowsAsArray: false });
+    expect(query.mock.calls[1]?.[0]).toMatchObject({ rowsAsArray: false });
+    expect(schema).toEqual({
+      tables: [
+        {
+          name: "students",
+          type: "table",
+          columns: [
+            { name: "id", dataType: "int", nullable: false, key: "PRI" },
+          ],
+        },
+      ],
+    });
+  });
 });

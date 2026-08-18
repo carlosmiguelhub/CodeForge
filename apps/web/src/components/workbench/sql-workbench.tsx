@@ -410,9 +410,9 @@ export function SqlWorkbench({
                   </button>
                   {open ? (
                     <div className="border-divider ml-4 border-l pl-3">
-                      {table.columns.map((column) => (
+                      {table.columns.map((column, columnIndex) => (
                         <div
-                          key={column.name}
+                          key={`${table.name}:${column.name}:${columnIndex}`}
                           className="text-ink-muted flex justify-between gap-2 py-1 text-[11px]"
                         >
                           <span className="truncate">{column.name}</span>

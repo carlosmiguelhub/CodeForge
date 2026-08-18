@@ -239,16 +239,22 @@ export class MySqlRunner {
     try {
       const [tables, columns] = await Promise.all([
         connection.promise().query(
-          `SELECT TABLE_NAME AS name, TABLE_TYPE AS type
-             FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME LIMIT 200`,
+          {
+            sql: `SELECT TABLE_NAME AS name, TABLE_TYPE AS type
+                    FROM information_schema.TABLES
+                   WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME LIMIT 200`,
+            rowsAsArray: false,
+          },
           [credential.database],
         ),
         connection.promise().query(
-          `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS name,
-                  DATA_TYPE AS data_type, IS_NULLABLE AS nullable, COLUMN_KEY AS column_key
-             FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION LIMIT 2000`,
+          {
+            sql: `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS name,
+                         DATA_TYPE AS data_type, IS_NULLABLE AS nullable, COLUMN_KEY AS column_key
+                    FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION LIMIT 2000`,
+            rowsAsArray: false,
+          },
           [credential.database],
         ),
       ]);
