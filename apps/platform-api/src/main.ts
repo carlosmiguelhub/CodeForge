@@ -1,6 +1,7 @@
 import { IdentityService } from "@sqweb/auth";
 import { ClassroomService } from "@sqweb/classroom";
 import { WorkspaceService } from "@sqweb/workspace";
+import { ExecutionGrantSigner } from "@sqweb/execution";
 import {
   MySqlAccountRepository,
   MySqlAuditSink,
@@ -33,6 +34,7 @@ const environmentSchema = z
     SQWEB_DEFAULT_INSTITUTION_ID: z.string().uuid(),
     SQWEB_APP_CHECK_MODE: z.enum(["firebase", "local"]).default("firebase"),
     SQWEB_LOCAL_APP_CHECK_TOKEN: z.string().min(32).optional(),
+    SQWEB_EXECUTION_GRANT_SECRET: z.string().min(32),
     PORT: z.coerce.number().int().positive().max(65_535).default(8080),
   })
   .superRefine((value, context) => {
@@ -108,6 +110,9 @@ const server = await buildServer({
   identity,
   classroom,
   workspace,
+  executionGrantSigner: new ExecutionGrantSigner(
+    environment.SQWEB_EXECUTION_GRANT_SECRET,
+  ),
   allowedOrigins: environment.SQWEB_ALLOWED_ORIGINS.split(",").map((value) =>
     value.trim(),
   ),

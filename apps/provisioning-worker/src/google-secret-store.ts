@@ -44,4 +44,23 @@ export class GoogleWorkspaceSecretStore implements WorkspaceSecretStore {
       );
     await this.client.destroySecretVersion({ name: secretRef });
   }
+
+  async get(secretRef: string) {
+    if (
+      !secretRef.startsWith(
+        `projects/${this.projectId}/secrets/sqweb-workspace-`,
+      )
+    )
+      throw new Error(
+        "Workspace secret reference is outside the configured project.",
+      );
+    const [version] = await this.client.accessSecretVersion({
+      name: secretRef,
+    });
+    const data = version.payload?.data;
+    if (!data) throw new Error("Workspace credential secret is empty.");
+    return JSON.parse(
+      Buffer.from(data as Uint8Array).toString("utf8"),
+    ) as WorkspaceCredential;
+  }
 }

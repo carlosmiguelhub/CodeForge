@@ -3,11 +3,14 @@ import { randomUUID } from "node:crypto";
 import { AuthorizationError, type IdentityService } from "@sqweb/auth";
 import type { ClassroomService } from "@sqweb/classroom";
 import type { WorkspaceService } from "@sqweb/workspace";
+import type { ExecutionGrantSigner } from "@sqweb/execution";
 import {
   accountStatusSchema,
   classCreateRequestSchema,
   classUpdateRequestSchema,
   enrollmentChangeRequestSchema,
+  executionGrantRequestSchema,
+  interactiveExecutionLimits,
   courseCreateRequestSchema,
   departmentCreateRequestSchema,
   invitationCreateRequestSchema,
@@ -54,6 +57,7 @@ export interface PlatformServerDependencies {
   readonly identity: IdentityService;
   readonly classroom: ClassroomService;
   readonly workspace: WorkspaceService;
+  readonly executionGrantSigner: ExecutionGrantSigner;
   readonly allowedOrigins: readonly string[];
   readonly logger?: boolean;
 }
@@ -236,6 +240,39 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
       headerValue(request.headers["idempotency-key"]),
     );
     return reply.code(202).send(workspace);
+  });
+
+  server.post("/v1/execution-grants", async (request) => {
+    await dependencies.identity.verifyAppCheck(
+      headerValue(request.headers["x-firebase-appcheck"]),
+    );
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const actor = await dependencies.identity.requireActiveAccount(verified, [
+      "student",
+      "teacher",
+    ]);
+    const body = executionGrantRequestSchema.parse(request.body);
+    const workspace = await dependencies.workspace.getWorkspace(
+      verified,
+      body.workspaceId,
+    );
+    if (workspace.state !== "ready")
+      throw new AuthorizationError(
+        "WORKSPACE_NOT_READY",
+        "The workspace is not ready for SQL execution.",
+        409,
+      );
+    const issued = dependencies.executionGrantSigner.issueExecution(
+      actor,
+      workspace.id,
+    );
+    return {
+      grant: issued.token,
+      expiresAt: new Date(issued.payload.expiresAt * 1000).toISOString(),
+      effectivePolicy: interactiveExecutionLimits,
+    };
   });
 
   server.get("/v1/admin/academics", async (request) => {

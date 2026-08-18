@@ -1,7 +1,7 @@
 import corpus from "../corpus/mysql-foundation.json";
 import { describe, expect, it } from "vitest";
 
-import { corpusSchema } from "./index";
+import { corpusSchema, MySqlParserClassifier } from "./index";
 
 describe("MySQL security corpus", () => {
   const parsed = corpusSchema.parse(corpus);
@@ -34,6 +34,27 @@ describe("MySQL security corpus", () => {
 
     for (const category of requiredCategories) {
       expect(categories.has(category)).toBe(true);
+    }
+  });
+
+  it("enforces the complete parser-backed decision corpus", () => {
+    const classifier = new MySqlParserClassifier();
+    for (const testCase of parsed) {
+      expect(
+        classifier.classify(testCase.sql, {
+          policyVersion: "mvp-1",
+          allowedStatementClasses: [
+            "read",
+            "write",
+            "ddl",
+            "transaction",
+            "metadata",
+            "explain",
+          ],
+          defaultDatabaseAlias: "workspace",
+        }).decision,
+        testCase.id,
+      ).toBe(testCase.expectedDecision);
     }
   });
 });

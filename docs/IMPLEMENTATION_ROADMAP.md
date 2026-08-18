@@ -1,6 +1,6 @@
 # SQWeb Implementation Roadmap
 
-Status: Milestones 1–4 implemented and verified; Milestone 5 not yet approved  
+Status: Milestones 1–5 implemented and locally verified; production hardening remains pending
 Last updated: 2026-08-18
 
 ## 1. Delivery policy
@@ -156,12 +156,9 @@ Dashboards and alerts cover:
 
 ## 12. Recommended next implementation task
 
-After separate implementation approval, begin only Phase 5: SQL Workbench.
+After separate implementation approval, begin only Phase 6: Activities and Submissions.
 
-- Add the separate SQL Execution API; the browser must never connect to MySQL.
-- Verify ID token, App Check, current role/enrollment, and server-selected workspace on every execution.
-- Add parser-backed statement classification, database privileges, time/row/byte/statement/concurrency limits, and cancellation.
-- Build the desktop-first Monaco editor, schema explorer, result grid, messages, history, transactions, and EXPLAIN workflow.
-- Keep import/export and advanced database-object management outside Phase 5 unless separately approved.
+- Add versioned activities with starter SQL, datasets, allowed-command policy, scheduling, drafts, attempts, deadlines, and immutable submission snapshots.
+- Keep automatic grading and hidden-test execution outside Phase 6 until Milestone 7 is separately approved.
 
-Milestone 4 delivered isolated databases/accounts, asynchronous provisioning, replacement reset, Secret Manager/local secret adapters, persistent cleanup retries, authorized lifecycle APIs/UI, and real MySQL isolation verification. No user SQL execution was added.
+Milestone 5 delivered short-lived execution grants, parser-backed classification, metadata-only history, a separate Execution API, real bounded MySQL execution, cancellation, destructive confirmation, schema discovery, Monaco editing, multiple result sets, responsive schema access, and accessible keyboard-resizable panels. Persistent manual sessions, import/export, visual plans, saved-query persistence, and advanced object management remain post-MVP work.

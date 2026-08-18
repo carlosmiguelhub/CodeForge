@@ -63,11 +63,13 @@ interface AuthContextValue {
     init?: RequestInit,
     requireAppCheck?: boolean,
   ): Promise<Response>;
+  executionFetch(path: string, init?: RequestInit): Promise<Response>;
   signOut(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const apiBaseUrl = process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "";
+const executionApiBaseUrl = process.env.NEXT_PUBLIC_EXECUTION_API_URL ?? "";
 const localAppCheckToken = process.env.NEXT_PUBLIC_LOCAL_APP_CHECK_TOKEN;
 const subscribeToClient = () => () => undefined;
 
@@ -158,7 +160,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         "Authorization",
         `Bearer ${await services.auth.currentUser.getIdToken()}`,
       );
-      headers.set("Content-Type", "application/json");
+      if (init.body) headers.set("Content-Type", "application/json");
       if (requireAppCheck) {
         if (services.appCheck) {
           headers.set(
@@ -177,6 +179,33 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         }
       }
       return fetch(`${apiBaseUrl}${path}`, { ...init, headers });
+    },
+    [services],
+  );
+
+  const executionFetch = useCallback(
+    async (path: string, init: RequestInit = {}) => {
+      if (!services?.auth.currentUser)
+        throw new Error("Authentication is required.");
+      if (!executionApiBaseUrl)
+        throw new Error("The SQL Execution API is not configured.");
+      const headers = new Headers(init.headers);
+      headers.set(
+        "Authorization",
+        `Bearer ${await services.auth.currentUser.getIdToken()}`,
+      );
+      if (init.body) headers.set("Content-Type", "application/json");
+      if (services.appCheck) {
+        headers.set(
+          "X-Firebase-AppCheck",
+          await getAppCheckHeader(services.appCheck),
+        );
+      } else if (localAppCheckToken && process.env.NODE_ENV !== "production") {
+        headers.set("X-Firebase-AppCheck", localAppCheckToken);
+      } else {
+        throw new Error("Firebase App Check is required.");
+      }
+      return fetch(`${executionApiBaseUrl}${path}`, { ...init, headers });
     },
     [services],
   );
@@ -256,6 +285,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       if (services) await firebaseSignOut(services.auth);
     },
     authorizedFetch,
+    executionFetch,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/components/auth/auth-provider", () => ({
   useAuth: () => ({ authorizedFetch: mocks.authorizedFetch }),
 }));
+vi.mock("@/components/workbench/sql-workbench", () => ({
+  SqlWorkbench: () => <div>SQL Workbench</div>,
+}));
 
 import { WorkspaceList } from "./workspace-list";
 

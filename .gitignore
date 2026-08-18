@@ -13,6 +13,7 @@ coverage/
 !.env.example
 *.local
 *.local.log
+*.local.error.log
 
 # Test artifacts
 playwright-report/

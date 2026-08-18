@@ -154,24 +154,15 @@ The response never includes database connection information. The grant binds UID
 
 `selection` is informational for history and editor behavior. The server executes only the supplied `sql` string and independently parses it.
 
-### Stream events
+### Milestone 5 response
 
-| Event          | Fields                                                 |
-| -------------- | ------------------------------------------------------ |
-| `accepted`     | execution ID, queued timestamp                         |
-| `running`      | started timestamp, statement count                     |
-| `result_start` | result index, safe column metadata                     |
-| `rows`         | bounded array of rows                                  |
-| `result_end`   | returned rows, truncated flag, affected rows, warnings |
-| `message`      | safe category, severity, text, statement index         |
-| `statistics`   | duration, total rows, total bytes                      |
-| `completed`    | final state                                            |
+`POST /v1/executions` returns one bounded JSON document after execution reaches a terminal state. It contains the opaque execution ID, terminal state, zero or more result sets, safe messages, and duration/row/byte/statement statistics. Each result set contains safe column metadata, bounded rows, affected rows, warning count, and a truncation indicator. Incremental streaming is post-MVP and must preserve the same limits and terminal-state contract.
 
 Terminal states are `successful`, `failed`, `timed_out`, `cancelled`, and `limit_exceeded`.
 
 ## 7. Cancellation
 
-`DELETE /executions/{id}` is idempotent. It verifies actor scope, locates the short-lived control record, calls the private cancellation service, and returns the observed final state. It never accepts a MySQL connection ID from the client.
+`DELETE /v1/executions/{id}` is idempotent for the owning actor. It verifies actor scope, marks the running control record cancelled, and asks the execution boundary to terminate the mapped connection. It never accepts or returns a MySQL connection ID. Production multi-instance deployment must use the private cancellation/control topology in `ARCHITECTURE.md`; the local single-process adapter is not a production scaling design.
 
 ## 8. Submission and grading contracts
 

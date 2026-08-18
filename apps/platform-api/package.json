@@ -16,6 +16,7 @@
     "@sqweb/classroom": "0.1.0",
     "@sqweb/contracts": "0.1.0",
     "@sqweb/database-platform": "0.1.0",
+    "@sqweb/execution": "0.1.0",
     "@sqweb/workspace": "0.1.0",
     "drizzle-orm": "0.45.2",
     "fastify": "5.12.0",

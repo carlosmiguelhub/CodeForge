@@ -528,6 +528,54 @@ export const workspaceResets = mysqlTable(
   ],
 );
 
+export const queryExecutions = mysqlTable(
+  "query_executions",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 }).notNull(),
+    actorId: char("actor_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    workspaceId: char("workspace_id", { length: 36 })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    statementHash: char("statement_hash", { length: 64 }).notNull(),
+    statementClasses: json("statement_classes_json").notNull(),
+    state: mysqlEnum("state", [
+      "queued",
+      "running",
+      "successful",
+      "failed",
+      "timed_out",
+      "cancelled",
+      "limit_exceeded",
+    ])
+      .notNull()
+      .default("queued"),
+    durationMs: int("duration_ms", { unsigned: true }),
+    rowsReturned: int("rows_returned", { unsigned: true }).notNull().default(0),
+    bytesReturned: int("bytes_returned", { unsigned: true })
+      .notNull()
+      .default(0),
+    errorCategory: varchar("error_category", { length: 80 }),
+    startedAt: timestamp("started_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { mode: "date", fsp: 3 }),
+  },
+  (table) => [
+    index("query_executions_actor_started_idx").on(
+      table.actorId,
+      table.startedAt,
+    ),
+    index("query_executions_workspace_started_idx").on(
+      table.workspaceId,
+      table.startedAt,
+    ),
+    index("query_executions_state_idx").on(table.state),
+  ],
+);
+
 export const platformSchema = {
   auditEvents,
   classes,
@@ -539,6 +587,7 @@ export const platformSchema = {
   institutionMemberships,
   institutions,
   programs,
+  queryExecutions,
   terms,
   templateVersions,
   users,

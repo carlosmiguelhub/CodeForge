@@ -18,6 +18,10 @@ const workspaceCleanupMigrationUrl = new URL(
   "../migrations/0004_workspace_cleanup.sql",
   import.meta.url,
 );
+const queryExecutionMigrationUrl = new URL(
+  "../migrations/0005_query_execution.sql",
+  import.meta.url,
+);
 
 describe("identity migration boundary", () => {
   it("creates only identity, membership, and audit platform tables", async () => {
@@ -91,5 +95,12 @@ describe("workspace migration boundary", () => {
     const sql = await readFile(workspaceCleanupMigrationUrl, "utf8");
     expect(sql).toContain("cleanup_state");
     expect(sql).toContain("cleanup_attempts");
+  });
+
+  it("stores bounded execution metadata without SQL text", async () => {
+    const sql = await readFile(queryExecutionMigrationUrl, "utf8");
+    expect(sql).toContain("statement_hash CHAR(64)");
+    expect(sql).toContain("rows_returned");
+    expect(sql).not.toMatch(/sql_text|sql_content|credential_secret_ref/i);
   });
 });

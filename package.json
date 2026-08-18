@@ -7,6 +7,9 @@
     "node": ">=22.12.0 <25"
   },
   "packageManager": "npm@11.8.0",
+  "overrides": {
+    "monaco-editor": "0.53.0"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -16,6 +19,7 @@
     "audit:production": "npm audit --omit=dev --omit=optional",
     "dev": "npm run dev --workspace @sqweb/web",
     "dev:api:local": "tsx --env-file=apps/platform-api/.env.local apps/platform-api/src/main.ts",
+    "dev:execution:local": "tsx --env-file=apps/execution-api/.env.local apps/execution-api/src/main.ts",
     "dev:worker:local": "tsx --env-file=apps/provisioning-worker/.env.local apps/provisioning-worker/src/main.ts",
     "local:bootstrap": "tsx --env-file=apps/platform-api/.env.local scripts/bootstrap-local.ts",
     "local:migrate:workspace": "tsx --env-file=apps/platform-api/.env.local scripts/apply-workspace-migration-local.ts",
@@ -23,6 +27,7 @@
     "local:firebase": "firebase emulators:start --only auth --project sqweb-5b004",
     "local:smoke": "tsx --env-file=apps/platform-api/.env.local scripts/smoke-local.ts",
     "local:smoke:workspace": "tsx --env-file=apps/platform-api/.env.local --env-file=apps/provisioning-worker/.env.local scripts/smoke-workspace-local.ts",
+    "local:smoke:execution": "tsx --env-file=apps/platform-api/.env.local --env-file=apps/execution-api/.env.local scripts/smoke-execution-local.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",

@@ -1,6 +1,6 @@
 # SQWeb Local Development
 
-The local stack uses separate platform and workspace MySQL 8.4 Docker volumes, Firebase Authentication Emulator, a development-only App Check verifier, the Platform API, provisioning worker, and Next.js. It does not create or mutate production cloud resources.
+The local stack uses separate platform and workspace MySQL 8.4 Docker volumes, Firebase Authentication Emulator, a development-only App Check verifier, the Platform API, SQL Execution API, provisioning worker, and Next.js. It does not create or mutate production cloud resources.
 
 ## Prerequisites
 
@@ -39,35 +39,44 @@ Open separate PowerShell terminals from the repository root.
    npm.cmd run dev:api:local
    ```
 
-5. Start the private workspace provisioning worker:
+5. Start the isolated SQL Execution API:
+
+   ```powershell
+   npm.cmd run dev:execution:local
+   ```
+
+6. Start the private workspace provisioning worker:
 
    ```powershell
    npm.cmd run dev:worker:local
    ```
 
-6. Start Next.js:
+7. Start Next.js:
 
    ```powershell
    npm.cmd run dev
    ```
 
-7. Verify the authenticated and workspace-isolation boundaries:
+8. Verify the authenticated, workspace-isolation, and execution boundaries:
 
    ```powershell
    npm.cmd run local:smoke
    npm.cmd run local:smoke:workspace
+   npm.cmd run local:smoke:execution
    ```
 
 ## Local URLs
 
-| Service         | URL                            |
-| --------------- | ------------------------------ |
-| SQWeb           | `http://localhost:3000`        |
-| Platform API    | `http://localhost:8080`        |
-| API health      | `http://localhost:8080/health` |
-| Firebase UI     | `http://127.0.0.1:4000/auth`   |
-| Platform MySQL  | `127.0.0.1:3307`               |
-| Workspace MySQL | `127.0.0.1:3308`               |
+| Service              | URL                            |
+| -------------------- | ------------------------------ |
+| SQWeb                | `http://localhost:3000`        |
+| Platform API         | `http://localhost:8080`        |
+| Platform API health  | `http://localhost:8080/health` |
+| SQL Execution API    | `http://localhost:8081`        |
+| Execution API health | `http://localhost:8081/health` |
+| Firebase UI          | `http://127.0.0.1:4000/auth`   |
+| Platform MySQL       | `127.0.0.1:3307`               |
+| Workspace MySQL      | `127.0.0.1:3308`               |
 
 ## Local accounts
 
@@ -90,7 +99,10 @@ These credentials are synthetic and must never be used outside local development
 - The local App Check verifier uses an explicit token, compares it in constant time, and refuses to initialize when `NODE_ENV=production`.
 - Production keeps Firebase App Check verification and Application Default Credentials.
 - The bootstrap is idempotent and writes only synthetic local identities and academic records.
-- No browser or user-SQL execution engine exists yet. The current workspace screen manages lifecycle status only.
+- The browser never receives workspace credentials or connects to MySQL. It obtains a short-lived, UID/workspace-bound capability from the Platform API and sends SQL only to the separate Execution API.
+- The Execution API re-verifies the Firebase ID token and App Check, resolves the server-selected ready workspace, applies parser-backed policy and database privileges, and enforces statement, time, row, byte, rate, and concurrency limits.
+- Query history stores hashes, classifications, state, duration, and counts; it does not store SQL text.
+- Manual persistent transaction sessions are intentionally unavailable. A bounded script can use `START TRANSACTION`, `COMMIT`, or `ROLLBACK` on its single execution connection.
 
 ## Stop local services
 

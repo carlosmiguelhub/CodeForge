@@ -1,0 +1,20 @@
+CREATE TABLE query_executions (
+  id CHAR(36) PRIMARY KEY,
+  institution_id CHAR(36) NOT NULL,
+  actor_id CHAR(36) NOT NULL,
+  workspace_id CHAR(36) NOT NULL,
+  statement_hash CHAR(64) NOT NULL,
+  statement_classes_json JSON NOT NULL,
+  state ENUM('queued','running','successful','failed','timed_out','cancelled','limit_exceeded') NOT NULL DEFAULT 'queued',
+  duration_ms INT UNSIGNED NULL,
+  rows_returned INT UNSIGNED NOT NULL DEFAULT 0,
+  bytes_returned INT UNSIGNED NOT NULL DEFAULT 0,
+  error_category VARCHAR(80) NULL,
+  started_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  finished_at TIMESTAMP(3) NULL,
+  INDEX query_executions_actor_started_idx (actor_id, started_at),
+  INDEX query_executions_workspace_started_idx (workspace_id, started_at),
+  INDEX query_executions_state_idx (state),
+  CONSTRAINT query_executions_actor_fk FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT query_executions_workspace_fk FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT
+);

@@ -46,6 +46,7 @@ function setup() {
   };
   const secrets: WorkspaceSecretStore = {
     put: vi.fn().mockResolvedValue("secret://workspace"),
+    get: vi.fn(),
     remove: vi.fn().mockResolvedValue(undefined),
   };
   return {

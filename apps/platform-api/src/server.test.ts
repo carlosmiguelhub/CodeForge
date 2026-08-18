@@ -9,6 +9,7 @@ import type { ClassroomRepository } from "@sqweb/classroom";
 import { ClassroomService } from "@sqweb/classroom";
 import type { WorkspaceRepository } from "@sqweb/workspace";
 import { WorkspaceService } from "@sqweb/workspace";
+import { ExecutionGrantSigner } from "@sqweb/execution";
 import type { AccountStatus, ClassSummary } from "@sqweb/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -136,6 +137,9 @@ async function setup(actor?: AccountProfile) {
       workspaces: workspaceRepository,
       audit: dependencies.audit,
     }),
+    executionGrantSigner: new ExecutionGrantSigner(
+      "test-execution-secret-that-is-at-least-32-chars",
+    ),
     allowedOrigins: ["http://localhost:3000"],
     logger: false,
   });
@@ -568,5 +572,25 @@ describe("platform workspace API", () => {
       headers: { authorization: "Bearer workspace-student" },
     });
     expect(response.statusCode).toBe(404);
+  });
+
+  it("issues a short-lived grant only for a ready owned workspace", async () => {
+    const { server, workspaceRepository } = await setup(student);
+    vi.mocked(workspaceRepository.findScoped).mockResolvedValue({
+      ...summary,
+      state: "ready",
+    });
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/execution-grants",
+      headers: {
+        authorization: "Bearer workspace-student",
+        "x-firebase-appcheck": "valid-app",
+      },
+      payload: { workspaceId: summary.id, requestedMode: "interactive" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().grant).toEqual(expect.any(String));
+    expect(response.json().effectivePolicy.timeoutMs).toBe(10_000);
   });
 });

@@ -47,6 +47,21 @@ async function main() {
       await connection.query(cleanupMigration);
       console.log("Workspace cleanup migration applied.");
     }
+    const [executionTables] = await connection.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS count FROM information_schema.tables
+       WHERE table_schema = DATABASE() AND table_name = 'query_executions'`,
+    );
+    if (Number(executionTables[0]?.count ?? 0) === 0) {
+      const executionMigration = await readFile(
+        new URL(
+          "../packages/database-platform/migrations/0005_query_execution.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      );
+      await connection.query(executionMigration);
+      console.log("Query execution migration applied.");
+    }
   } finally {
     await connection.end();
   }

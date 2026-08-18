@@ -116,5 +116,6 @@ export interface WorkspaceDatabaseAdmin {
 
 export interface WorkspaceSecretStore {
   put(workspaceId: string, credential: WorkspaceCredential): Promise<string>;
+  get(secretRef: string): Promise<WorkspaceCredential>;
   remove(secretRef: string): Promise<void>;
 }
