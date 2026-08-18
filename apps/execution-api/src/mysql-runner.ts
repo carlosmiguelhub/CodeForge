@@ -131,6 +131,8 @@ export class MySqlRunner {
     try {
       await new Promise<void>((resolve, reject) => {
         let settled = false;
+        let nextFieldResultIndex = 0;
+        let currentEventResultIndex = 0;
         const stop = (error: Error) => {
           if (settled) return;
           settled = true;
@@ -146,7 +148,10 @@ export class MySqlRunner {
           supportBigNumbers: true,
           bigNumberStrings: true,
         });
-        query.on("fields", (fields: FieldPacket[], index: number) => {
+        query.on("fields", (fields: FieldPacket[]) => {
+          const index = nextFieldResultIndex;
+          currentEventResultIndex = index;
+          nextFieldResultIndex += 1;
           if (!Array.isArray(fields)) return;
           if (index >= limits.maxResultSets)
             return stop(new ExecutionLimitError("RESULT_SET_LIMIT"));
@@ -161,7 +166,8 @@ export class MySqlRunner {
             truncated: false,
           };
         });
-        query.on("result", (value: unknown, index: number) => {
+        query.on("result", (value: unknown, emittedIndex?: number) => {
+          const index = emittedIndex ?? currentEventResultIndex;
           if (index >= limits.maxResultSets)
             return stop(new ExecutionLimitError("RESULT_SET_LIMIT"));
           const header = value as {

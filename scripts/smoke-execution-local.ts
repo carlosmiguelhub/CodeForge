@@ -37,7 +37,10 @@ function headers(token: string, extra?: Record<string, string>) {
 interface SmokePayload {
   grant?: unknown;
   state?: unknown;
-  resultSets?: unknown;
+  resultSets?: Array<{
+    columns?: Array<{ name?: unknown }>;
+    rows?: unknown[][];
+  }>;
   error?: { code?: unknown; confirmation?: { token?: unknown } };
 }
 
@@ -114,9 +117,12 @@ async function main() {
     !multi.response.ok ||
     multi.payload.state !== "successful" ||
     !Array.isArray(multi.payload.resultSets) ||
-    multi.payload.resultSets.length !== 3
+    multi.payload.resultSets.length !== 3 ||
+    multi.payload.resultSets[1]?.columns?.[0]?.name !== "id" ||
+    multi.payload.resultSets[1]?.rows?.[0]?.[0] !== sampleId ||
+    multi.payload.resultSets[2]?.columns?.[0]?.name !== "total"
   )
-    throw new Error("Bounded multi-result execution failed.");
+    throw new Error("Bounded multi-result execution or rendering data failed.");
 
   const digits =
     "(SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9)";
