@@ -42,17 +42,10 @@ export class WorkspaceService {
       ["student", "teacher"],
     );
     const idempotencyKey = this.validateKey(keyValue);
-    if (request.scope === "class") {
-      throw new AuthorizationError(
-        "VALIDATION_FAILED",
-        "Class-scoped workspaces require an activity assignment and are not available yet.",
-        409,
-      );
-    }
     if (request.templateVersionId) {
       throw new AuthorizationError(
         "VALIDATION_FAILED",
-        "Template versions must be selected through an authorized activity assignment.",
+        "Template versions are not available for personal workspaces yet.",
         409,
       );
     }

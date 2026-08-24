@@ -270,7 +270,7 @@ export class MySqlRunner {
   ): Promise<WorkspaceSchemaResponse> {
     const connection = await connect(credential);
     try {
-      const [tables, columns] = await Promise.all([
+      const [tables, columns, foreignKeys] = await Promise.all([
         connection.promise().query(
           {
             sql: `SELECT TABLE_NAME AS name, TABLE_TYPE AS type
@@ -290,8 +290,28 @@ export class MySqlRunner {
           },
           [credential.database],
         ),
+        connection.promise().query(
+          {
+            sql: `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name,
+                         REFERENCED_TABLE_NAME AS referenced_table, REFERENCED_COLUMN_NAME AS referenced_column
+                    FROM information_schema.KEY_COLUMN_USAGE
+                   WHERE TABLE_SCHEMA = ? AND REFERENCED_TABLE_NAME IS NOT NULL
+                   ORDER BY TABLE_NAME, ORDINAL_POSITION LIMIT 500`,
+            rowsAsArray: false,
+          },
+          [credential.database],
+        ),
       ]);
       const columnRows = columns[0] as Array<Record<string, string>>;
+      const referenceByColumn = new Map(
+        (foreignKeys[0] as Array<Record<string, string>>).map((row) => [
+          `${row.table_name}.${row.column_name}`,
+          {
+            table: row.referenced_table ?? "",
+            column: row.referenced_column ?? "",
+          },
+        ]),
+      );
       return {
         tables: (tables[0] as Array<Record<string, string>>).map((table) => ({
           name: table.name ?? "",
@@ -303,6 +323,8 @@ export class MySqlRunner {
               dataType: column.data_type ?? "",
               nullable: column.nullable === "YES",
               key: column.column_key ?? "",
+              references:
+                referenceByColumn.get(`${table.name}.${column.name}`) ?? null,
             })),
         })),
       };

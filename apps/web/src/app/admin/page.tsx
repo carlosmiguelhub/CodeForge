@@ -1,6 +1,6 @@
+import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ProtectedRolePage } from "@/components/auth/protected-role-page";
-import { FoundationDashboard } from "@/components/foundation-dashboard";
 
 export default function AdministratorPage() {
   return (
@@ -11,7 +11,7 @@ export default function AdministratorPage() {
         eyebrow="Administrator workspace"
         pageTitle="Dashboard"
       >
-        <FoundationDashboard />
+        <AdminDashboard />
       </AppShell>
     </ProtectedRolePage>
   );

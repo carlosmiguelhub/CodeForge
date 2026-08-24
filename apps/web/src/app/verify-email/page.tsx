@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { IdentityFrame } from "@/components/auth/identity-frame";
 import { IdentityStatus } from "@/components/auth/identity-status";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function VerifyEmailPage() {
   const auth = useAuth();
@@ -47,16 +48,17 @@ export default function VerifyEmailPage() {
           type="button"
           disabled={busy}
           onClick={() => void check()}
-          className="rounded-control bg-action h-10 w-full px-4 font-semibold text-white disabled:opacity-50"
+          className="rounded-control bg-action flex h-10 w-full items-center justify-center gap-2 px-4 font-semibold text-white disabled:opacity-50"
         >
-          I have verified my email
+          {busy ? <Spinner size={16} /> : null}I have verified my email
         </button>
         <button
           type="button"
           disabled={busy}
           onClick={() => void resend()}
-          className="rounded-control border-structural bg-surface text-ink-primary h-10 w-full border px-4 font-medium disabled:opacity-50"
+          className="rounded-control border-structural bg-surface text-ink-primary flex h-10 w-full items-center justify-center gap-2 border px-4 font-medium disabled:opacity-50"
         >
+          {busy ? <Spinner size={16} /> : null}
           Resend verification email
         </button>
       </div>

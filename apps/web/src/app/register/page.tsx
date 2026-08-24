@@ -1,50 +1,87 @@
 "use client";
 
-import type { RequestedRegistrationRole } from "@sqweb/contracts";
+import { sectionSchema, type Section } from "@sqweb/contracts";
+import { Lock, Mail, Users, User } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import { z } from "zod";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { IdentityFrame } from "@/components/auth/identity-frame";
 import { IdentityStatus } from "@/components/auth/identity-status";
+import { TextField } from "@/components/auth/text-field";
+import { Spinner } from "@/components/ui/spinner";
+import { setPendingSectionId } from "@/lib/pending-section";
+import { passwordPolicyError } from "@/lib/password-policy";
+
+const sectionListSchema = z.array(sectionSchema);
 
 export default function RegisterPage() {
   const auth = useAuth();
+  const { publicFetch } = auth;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const canCompleteProfile =
-    auth.state === "unregistered" && auth.user?.emailVerified;
+  const [formError, setFormError] = useState<string | null>(null);
+  const [sections, setSections] = useState<readonly Section[] | null>(null);
+  const [sectionsError, setSectionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await publicFetch("/v1/sections");
+        if (!response.ok) throw new Error();
+        const parsed = sectionListSchema.parse(await response.json());
+        if (!cancelled) setSections(parsed);
+      } catch {
+        if (!cancelled)
+          setSectionsError(
+            "Sections could not be loaded. Refresh the page to try again.",
+          );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // AuthProvider recreates its whole context value object every render,
+    // so depending on `auth` here (instead of the specific stable
+    // publicFetch callback) would re-run this effect on every re-render.
+  }, [publicFetch]);
 
   async function createIdentity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
     const form = new FormData(event.currentTarget);
+    const password = String(form.get("password"));
+    const confirmPassword = String(form.get("confirmPassword"));
+    const sectionId = String(form.get("sectionId") || "");
+
+    const policyError = passwordPolicyError(password);
+    if (policyError) {
+      setFormError(policyError);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setFormError("Passwords do not match.");
+      return;
+    }
+    if (!sectionId) {
+      setFormError("Select a section.");
+      return;
+    }
+
     setBusy(true);
     try {
       await auth.createEmailAccount(
         String(form.get("email")),
-        String(form.get("password")),
+        password,
         String(form.get("displayName")),
       );
-      router.push("/verify-email");
+      setPendingSectionId(sectionId);
+      await auth.signOut();
+      router.push("/login?registered=1");
     } catch {
       // AuthProvider exposes a safe user-facing error message.
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function completeProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setBusy(true);
-    try {
-      await auth.completeRegistration(
-        String(form.get("displayName")),
-        String(form.get("requestedRole")) as RequestedRegistrationRole,
-      );
-      router.push("/continue");
-    } catch {
-      // Registration remains on this screen; no authority is assumed.
     } finally {
       setBusy(false);
     }
@@ -53,132 +90,114 @@ export default function RegisterPage() {
   return (
     <IdentityFrame
       eyebrow="Account registration"
-      title={
-        canCompleteProfile ? "Complete your profile" : "Create an identity"
-      }
-      description={
-        canCompleteProfile
-          ? "Choose the educational role you are requesting. Teacher access requires administrator approval."
-          : "Create a Firebase identity first. Email verification is required before SQWeb creates a platform account."
-      }
+      title="Create an identity"
+      description="Every account starts as a student. Verify your email, then sign in — an administrator can grant teacher access later."
     >
-      {auth.error ? (
+      {formError || auth.error ? (
         <div className="mb-4">
-          <IdentityStatus tone="error">{auth.error}</IdentityStatus>
+          <IdentityStatus tone="error">
+            {formError ?? auth.error ?? ""}
+          </IdentityStatus>
         </div>
       ) : null}
-      {canCompleteProfile ? (
-        <form
-          className="space-y-4"
-          onSubmit={(event) => void completeProfile(event)}
-        >
-          <label className="block">
-            <span className="text-ink-secondary mb-1.5 block text-xs font-medium">
-              Display name
-            </span>
-            <input
-              name="displayName"
-              defaultValue={auth.user?.displayName ?? ""}
-              required
-              minLength={2}
-              maxLength={120}
-              className="rounded-control border-divider bg-surface text-ink-primary focus:border-action h-10 w-full border px-3"
+      <form
+        method="post"
+        className="space-y-4"
+        onSubmit={(event) => void createIdentity(event)}
+      >
+        <TextField
+          label="Display name"
+          icon={User}
+          name="displayName"
+          required
+          minLength={2}
+          maxLength={120}
+          autoComplete="name"
+        />
+        <label htmlFor="sectionId" className="block">
+          <span className="text-ink-secondary mb-1.5 block text-xs font-medium">
+            Section
+          </span>
+          <div className="relative">
+            <Users
+              aria-hidden="true"
+              size={16}
+              className="text-ink-disabled pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
             />
-          </label>
-          <fieldset>
-            <legend className="text-ink-secondary mb-2 text-xs font-medium">
-              Requested role
-            </legend>
-            <div className="grid grid-cols-2 gap-2">
-              {(["student", "teacher"] as const).map((role) => (
-                <label
-                  key={role}
-                  className="rounded-control border-divider bg-surface text-ink-secondary has-checked:border-action has-checked:text-ink-primary flex min-h-16 items-center gap-2 border px-3 capitalize"
-                >
-                  <input
-                    type="radio"
-                    name="requestedRole"
-                    value={role}
-                    required
-                  />
-                  {role}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-control bg-action h-10 w-full px-4 font-semibold text-white disabled:opacity-50"
-          >
-            {busy ? "Completing…" : "Complete registration"}
-          </button>
-          <p className="text-ink-muted text-xs leading-5">
-            Administrator accounts cannot be requested through public
-            registration.
-          </p>
-        </form>
-      ) : (
-        <form
-          className="space-y-4"
-          onSubmit={(event) => void createIdentity(event)}
-        >
-          <label className="block">
-            <span className="text-ink-secondary mb-1.5 block text-xs font-medium">
-              Display name
-            </span>
-            <input
-              name="displayName"
+            <select
+              id="sectionId"
+              name="sectionId"
               required
-              minLength={2}
-              maxLength={120}
-              autoComplete="name"
-              className="rounded-control border-divider bg-surface text-ink-primary focus:border-action h-10 w-full border px-3"
-            />
-          </label>
-          <label className="block">
-            <span className="text-ink-secondary mb-1.5 block text-xs font-medium">
-              Email address
-            </span>
-            <input
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="rounded-control border-divider bg-surface text-ink-primary focus:border-action h-10 w-full border px-3"
-            />
-          </label>
-          <label className="block">
-            <span className="text-ink-secondary mb-1.5 block text-xs font-medium">
-              Password
-            </span>
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="rounded-control border-divider bg-surface text-ink-primary focus:border-action h-10 w-full border px-3"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={busy || auth.state === "unavailable"}
-            className="rounded-control bg-action h-10 w-full px-4 font-semibold text-white disabled:opacity-50"
-          >
-            {busy ? "Creating…" : "Create account"}
-          </button>
-          <p className="text-ink-muted text-center text-xs">
-            Already registered?{" "}
-            <a
-              href="/login"
-              className="text-action-soft underline-offset-4 hover:underline"
+              disabled={!sections || sections.length === 0}
+              defaultValue=""
+              className="rounded-control border-structural bg-elevated text-ink-primary focus:border-action h-10 w-full appearance-none border py-2 pr-3 pl-9 transition-colors disabled:opacity-60"
             >
-              Sign in
-            </a>
-          </p>
-        </form>
-      )}
+              <option value="" disabled>
+                {sections === null
+                  ? "Loading sections…"
+                  : sections.length === 0
+                    ? "No sections available yet"
+                    : "Select your section"}
+              </option>
+              {(sections ?? []).map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {sectionsError ? (
+            <p className="text-danger mt-1.5 text-xs">{sectionsError}</p>
+          ) : null}
+        </label>
+        <TextField
+          label="Email address"
+          icon={Mail}
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+        />
+        <TextField
+          label="Password"
+          icon={Lock}
+          name="password"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+        />
+        <TextField
+          label="Confirm password"
+          icon={Lock}
+          name="confirmPassword"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+        />
+        <p className="text-ink-muted -mt-2 text-xs leading-5">
+          At least 8 characters, including one special character (e.g. ! @ #
+          $ %).
+        </p>
+        <button
+          type="submit"
+          disabled={busy || auth.state === "unavailable"}
+          className="rounded-control bg-action hover:bg-action/90 flex h-10 w-full items-center justify-center gap-2 px-4 font-semibold text-white transition-colors disabled:opacity-50"
+        >
+          {busy ? <Spinner size={16} /> : null}
+          {busy ? "Creating…" : "Create account"}
+        </button>
+        <p className="text-ink-muted text-center text-xs">
+          Already registered?{" "}
+          <a
+            href="/login"
+            className="text-action-soft underline-offset-4 hover:underline"
+          >
+            Sign in
+          </a>
+        </p>
+      </form>
     </IdentityFrame>
   );
 }

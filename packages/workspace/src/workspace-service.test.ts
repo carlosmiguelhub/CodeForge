@@ -13,6 +13,7 @@ const actor: AccountProfile = {
   institutionId: "00000000-0000-4000-8000-000000000001",
   status: "active",
   roles: ["student"],
+  sectionId: null,
   authorizationVersion: 1,
 };
 
@@ -79,16 +80,6 @@ describe("WorkspaceService", () => {
       ),
     ).toEqual(requested);
     expect(repository.createRequested).not.toHaveBeenCalled();
-  });
-
-  it("rejects class scope until it can be bound to an activity assignment", async () => {
-    await expect(
-      service.requestWorkspace(
-        { uid: "student", email: actor.email, emailVerified: true },
-        { scope: "class", scopeId: crypto.randomUUID() },
-        "request-key-0000000001",
-      ),
-    ).rejects.toMatchObject({ code: "VALIDATION_FAILED", statusCode: 409 });
   });
 
   it("rejects a client-selected template version", async () => {

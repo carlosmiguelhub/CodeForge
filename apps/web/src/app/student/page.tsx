@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ProtectedRolePage } from "@/components/auth/protected-role-page";
-import { FoundationDashboard } from "@/components/foundation-dashboard";
+import { StudentDashboard } from "@/components/dashboard/student-dashboard";
 
 export default function StudentPage() {
   return (
@@ -11,7 +11,7 @@ export default function StudentPage() {
         eyebrow="Student workspace"
         pageTitle="Dashboard"
       >
-        <FoundationDashboard />
+        <StudentDashboard />
       </AppShell>
     </ProtectedRolePage>
   );

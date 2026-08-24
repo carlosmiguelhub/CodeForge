@@ -11,6 +11,7 @@ const baseAccount: AccountProfile = {
   institutionId: "00000000-0000-4000-8000-000000000001",
   status: "active",
   roles: ["student"],
+  sectionId: null,
   authorizationVersion: 1,
 };
 

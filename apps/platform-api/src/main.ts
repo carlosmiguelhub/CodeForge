@@ -1,11 +1,25 @@
 import { IdentityService } from "@sqweb/auth";
-import { ClassroomService } from "@sqweb/classroom";
+import { AdminInsightsService } from "@sqweb/admin-insights";
+import { CodeWorkspaceService } from "@sqweb/code-workspace";
+import { ErdService } from "@sqweb/erd";
+import { GuiSessionService } from "@sqweb/gui-session";
+import { GuiWorkspaceService } from "@sqweb/gui-workspace";
+import { SavedQueryService } from "@sqweb/saved-queries";
+import { SectionService } from "@sqweb/sections";
 import { WorkspaceService } from "@sqweb/workspace";
 import { ExecutionGrantSigner } from "@sqweb/execution";
 import {
   MySqlAccountRepository,
   MySqlAuditSink,
-  MySqlClassroomRepository,
+  MySqlCodeWorkspaceRepository,
+  MySqlErdDiagramRepository,
+  MySqlGuiSessionAccessReader,
+  MySqlInfrastructureReader,
+  MySqlInstitutionRepository,
+  MySqlJavaGuiWorkspaceRepository,
+  MySqlSavedQueryRepository,
+  MySqlSectionRepository,
+  MySqlUsageReader,
   MySqlWorkspaceRepository,
   platformSchema,
 } from "@sqweb/database-platform";
@@ -18,6 +32,7 @@ import {
   FirebaseAppCheckVerifier,
   FirebaseClaimsWriter,
   FirebaseTokenVerifier,
+  FirebaseUserProvisioner,
   LocalAppCheckVerifier,
 } from "./firebase-adapters";
 import { buildServer } from "./server";
@@ -35,6 +50,16 @@ const environmentSchema = z
     SQWEB_APP_CHECK_MODE: z.enum(["firebase", "local"]).default("firebase"),
     SQWEB_LOCAL_APP_CHECK_TOKEN: z.string().min(32).optional(),
     SQWEB_EXECUTION_GRANT_SECRET: z.string().min(32),
+    GUI_SESSION_MAX_RUNTIME_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(600),
+    INTERACTIVE_RUN_MAX_RUNTIME_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(300),
     PORT: z.coerce.number().int().positive().max(65_535).default(8080),
   })
   .superRefine((value, context) => {
@@ -84,8 +109,11 @@ const audit = new MySqlAuditSink(
   database,
   environment.SQWEB_DEFAULT_INSTITUTION_ID,
 );
+const accounts = new MySqlAccountRepository(database);
+const institutions = new MySqlInstitutionRepository(database);
 const identity = new IdentityService({
-  accounts: new MySqlAccountRepository(database),
+  accounts,
+  institutions,
   tokens: new FirebaseTokenVerifier(firebaseApp),
   appCheck:
     environment.SQWEB_APP_CHECK_MODE === "local"
@@ -93,11 +121,21 @@ const identity = new IdentityService({
       : new FirebaseAppCheckVerifier(firebaseApp),
   claims: new FirebaseClaimsWriter(firebaseApp),
   audit,
+  provisioner: new FirebaseUserProvisioner(firebaseApp),
   institutionId: environment.SQWEB_DEFAULT_INSTITUTION_ID,
 });
-const classroom = new ClassroomService({
+const adminInsights = new AdminInsightsService({
   identity,
-  classroom: new MySqlClassroomRepository(database),
+  accounts,
+  usage: new MySqlUsageReader(database),
+  auditReader: audit,
+  audit,
+  infrastructure: new MySqlInfrastructureReader(database),
+});
+const section = new SectionService({
+  institutionId: environment.SQWEB_DEFAULT_INSTITUTION_ID,
+  identity,
+  sections: new MySqlSectionRepository(database),
   audit,
 });
 const workspace = new WorkspaceService({
@@ -105,14 +143,58 @@ const workspace = new WorkspaceService({
   workspaces: new MySqlWorkspaceRepository(database),
   audit,
 });
+const erd = new ErdService({
+  identity,
+  diagrams: new MySqlErdDiagramRepository(database),
+  audit,
+});
+const codeWorkspace = new CodeWorkspaceService({
+  identity,
+  workspaces: new MySqlCodeWorkspaceRepository(database),
+});
+const savedQuery = new SavedQueryService({
+  identity,
+  // Reuses the ownership check WorkspaceService.getWorkspace already does
+  // (404s on a workspace the caller doesn't own) rather than duplicating it.
+  verifyWorkspaceOwnership: async (verified, workspaceId) => {
+    await workspace.getWorkspace(verified, workspaceId);
+  },
+  queries: new MySqlSavedQueryRepository(database),
+  audit,
+});
+const guiWorkspace = new GuiWorkspaceService({
+  identity,
+  workspaces: new MySqlJavaGuiWorkspaceRepository(database),
+});
+const executionGrantSigner = new ExecutionGrantSigner(
+  environment.SQWEB_EXECUTION_GRANT_SECRET,
+);
+const guiSession = new GuiSessionService({
+  identity,
+  sections: section,
+  workspaces: new MySqlJavaGuiWorkspaceRepository(database),
+  sessions: new MySqlGuiSessionAccessReader(pool),
+  grantSigner: executionGrantSigner,
+  audit,
+  maxRuntimeSeconds: environment.GUI_SESSION_MAX_RUNTIME_SECONDS,
+  // Must outlive the whole session, unlike the SQL execution grant's 60s —
+  // this same token re-authorizes WS reconnects for the run's full length.
+  grantLifetimeSeconds: environment.GUI_SESSION_MAX_RUNTIME_SECONDS + 30,
+});
 
 const server = await buildServer({
   identity,
-  classroom,
+  adminInsights,
+  section,
   workspace,
-  executionGrantSigner: new ExecutionGrantSigner(
-    environment.SQWEB_EXECUTION_GRANT_SECRET,
-  ),
+  erd,
+  codeWorkspace,
+  savedQuery,
+  guiWorkspace,
+  guiSession,
+  executionGrantSigner,
+  interactiveRunGrantLifetimeSeconds:
+    environment.INTERACTIVE_RUN_MAX_RUNTIME_SECONDS + 30,
   allowedOrigins: environment.SQWEB_ALLOWED_ORIGINS.split(",").map((value) =>
     value.trim(),
   ),

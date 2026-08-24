@@ -13,7 +13,7 @@ export const workspaceStateSchema = z.enum([
 ]);
 export type WorkspaceState = z.infer<typeof workspaceStateSchema>;
 
-export const workspaceScopeSchema = z.enum(["personal", "class"]);
+export const workspaceScopeSchema = z.enum(["personal"]);
 export type WorkspaceScope = z.infer<typeof workspaceScopeSchema>;
 
 export const workspaceRequestSchema = z.object({

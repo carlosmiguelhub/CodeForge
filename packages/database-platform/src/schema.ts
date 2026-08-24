@@ -1,12 +1,13 @@
 import {
   bigint,
+  boolean,
   char,
   index,
   int,
   json,
   mysqlEnum,
   mysqlTable,
-  primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -25,6 +26,8 @@ export const institutions = mysqlTable(
     timezone: varchar("timezone", { length: 64 })
       .notNull()
       .default("Asia/Manila"),
+    maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+    maintenanceMessage: varchar("maintenance_message", { length: 500 }),
     createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
       .notNull()
       .defaultNow(),
@@ -36,6 +39,33 @@ export const institutions = mysqlTable(
   (table) => [uniqueIndex("institutions_slug_uq").on(table.slug)],
 );
 
+export const sections = mysqlTable(
+  "sections",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    lockedWorkspaces: json("locked_workspaces_json"),
+    archivedAt: timestamp("archived_at", { mode: "date", fsp: 3 }),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [
+    uniqueIndex("sections_institution_name_uq").on(
+      table.institutionId,
+      table.name,
+    ),
+    index("sections_institution_idx").on(table.institutionId),
+  ],
+);
+
 export const users = mysqlTable(
   "users",
   {
@@ -43,6 +73,10 @@ export const users = mysqlTable(
     firebaseUid: varchar("firebase_uid", { length: 128 }).notNull(),
     email: varchar("email", { length: 320 }).notNull(),
     displayName: varchar("display_name", { length: 120 }).notNull(),
+    sectionId: char("section_id", { length: 36 }).references(
+      () => sections.id,
+      { onDelete: "set null" },
+    ),
     status: mysqlEnum("status", [
       "pending_verification",
       "pending_approval",
@@ -130,242 +164,6 @@ export const auditEvents = mysqlTable(
   ],
 );
 
-export const departments = mysqlTable(
-  "departments",
-  {
-    id: char("id", { length: 36 }).primaryKey(),
-    institutionId: char("institution_id", { length: 36 })
-      .notNull()
-      .references(() => institutions.id, { onDelete: "restrict" }),
-    code: varchar("code", { length: 32 }).notNull(),
-    name: varchar("name", { length: 160 }).notNull(),
-    status: mysqlEnum("status", ["active", "archived"])
-      .notNull()
-      .default("active"),
-    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow()
-      .onUpdateNow(),
-  },
-  (table) => [
-    uniqueIndex("departments_institution_code_uq").on(
-      table.institutionId,
-      table.code,
-    ),
-  ],
-);
-
-export const programs = mysqlTable(
-  "programs",
-  {
-    id: char("id", { length: 36 }).primaryKey(),
-    institutionId: char("institution_id", { length: 36 })
-      .notNull()
-      .references(() => institutions.id, { onDelete: "restrict" }),
-    departmentId: char("department_id", { length: 36 })
-      .notNull()
-      .references(() => departments.id, { onDelete: "restrict" }),
-    code: varchar("code", { length: 32 }).notNull(),
-    name: varchar("name", { length: 160 }).notNull(),
-    status: mysqlEnum("status", ["active", "archived"])
-      .notNull()
-      .default("active"),
-    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow()
-      .onUpdateNow(),
-  },
-  (table) => [
-    uniqueIndex("programs_institution_code_uq").on(
-      table.institutionId,
-      table.code,
-    ),
-    index("programs_department_idx").on(table.departmentId),
-  ],
-);
-
-export const terms = mysqlTable(
-  "terms",
-  {
-    id: char("id", { length: 36 }).primaryKey(),
-    institutionId: char("institution_id", { length: 36 })
-      .notNull()
-      .references(() => institutions.id, { onDelete: "restrict" }),
-    name: varchar("name", { length: 120 }).notNull(),
-    startsAt: timestamp("starts_at", { mode: "date", fsp: 3 }).notNull(),
-    endsAt: timestamp("ends_at", { mode: "date", fsp: 3 }).notNull(),
-    status: mysqlEnum("status", ["upcoming", "active", "closed"])
-      .notNull()
-      .default("upcoming"),
-    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow()
-      .onUpdateNow(),
-  },
-  (table) => [
-    uniqueIndex("terms_institution_name_uq").on(
-      table.institutionId,
-      table.name,
-    ),
-  ],
-);
-
-export const courses = mysqlTable(
-  "courses",
-  {
-    id: char("id", { length: 36 }).primaryKey(),
-    institutionId: char("institution_id", { length: 36 })
-      .notNull()
-      .references(() => institutions.id, { onDelete: "restrict" }),
-    departmentId: char("department_id", { length: 36 })
-      .notNull()
-      .references(() => departments.id, { onDelete: "restrict" }),
-    code: varchar("code", { length: 32 }).notNull(),
-    title: varchar("title", { length: 200 }).notNull(),
-    description: text("description"),
-    status: mysqlEnum("status", ["active", "archived"])
-      .notNull()
-      .default("active"),
-    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow()
-      .onUpdateNow(),
-  },
-  (table) => [
-    uniqueIndex("courses_institution_code_uq").on(
-      table.institutionId,
-      table.code,
-    ),
-    index("courses_department_idx").on(table.departmentId),
-  ],
-);
-
-export const classes = mysqlTable(
-  "classes",
-  {
-    id: char("id", { length: 36 }).primaryKey(),
-    institutionId: char("institution_id", { length: 36 })
-      .notNull()
-      .references(() => institutions.id, { onDelete: "restrict" }),
-    courseId: char("course_id", { length: 36 })
-      .notNull()
-      .references(() => courses.id, { onDelete: "restrict" }),
-    termId: char("term_id", { length: 36 })
-      .notNull()
-      .references(() => terms.id, { onDelete: "restrict" }),
-    section: varchar("section", { length: 80 }).notNull(),
-    ownerTeacherId: char("owner_teacher_id", { length: 36 })
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    status: mysqlEnum("status", ["active", "archived"])
-      .notNull()
-      .default("active"),
-    schedule: json("schedule_json"),
-    version: int("version").notNull().default(1),
-    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow()
-      .onUpdateNow(),
-  },
-  (table) => [
-    uniqueIndex("classes_course_term_section_uq").on(
-      table.courseId,
-      table.termId,
-      table.section,
-    ),
-    index("classes_institution_status_idx").on(
-      table.institutionId,
-      table.status,
-    ),
-    index("classes_owner_idx").on(table.ownerTeacherId),
-  ],
-);
-
-export const classTeachers = mysqlTable(
-  "class_teachers",
-  {
-    classId: char("class_id", { length: 36 })
-      .notNull()
-      .references(() => classes.id, { onDelete: "cascade" }),
-    teacherId: char("teacher_id", { length: 36 })
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    permissionLevel: mysqlEnum("permission_level", ["owner", "assistant"])
-      .notNull()
-      .default("assistant"),
-    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [primaryKey({ columns: [table.classId, table.teacherId] })],
-);
-
-export const enrollments = mysqlTable(
-  "enrollments",
-  {
-    id: char("id", { length: 36 }).primaryKey(),
-    classId: char("class_id", { length: 36 })
-      .notNull()
-      .references(() => classes.id, { onDelete: "restrict" }),
-    studentId: char("student_id", { length: 36 })
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    state: mysqlEnum("state", ["active", "removed"])
-      .notNull()
-      .default("active"),
-    joinedAt: timestamp("joined_at", { mode: "date", fsp: 3 }).notNull(),
-    removedAt: timestamp("removed_at", { mode: "date", fsp: 3 }),
-    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow()
-      .onUpdateNow(),
-  },
-  (table) => [
-    uniqueIndex("enrollments_class_student_uq").on(
-      table.classId,
-      table.studentId,
-    ),
-    index("enrollments_student_state_idx").on(table.studentId, table.state),
-  ],
-);
-
-export const classInvites = mysqlTable(
-  "class_invites",
-  {
-    id: char("id", { length: 36 }).primaryKey(),
-    classId: char("class_id", { length: 36 })
-      .notNull()
-      .references(() => classes.id, { onDelete: "restrict" }),
-    codeHash: char("code_hash", { length: 64 }).notNull(),
-    expiresAt: timestamp("expires_at", { mode: "date", fsp: 3 }).notNull(),
-    usageLimit: int("usage_limit").notNull(),
-    usageCount: int("usage_count").notNull().default(0),
-    revokedAt: timestamp("revoked_at", { mode: "date", fsp: 3 }),
-    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("class_invites_code_hash_uq").on(table.codeHash),
-    index("class_invites_class_idx").on(table.classId),
-  ],
-);
-
 export const workspaceTemplates = mysqlTable("workspace_templates", {
   id: char("id", { length: 36 }).primaryKey(),
   institutionId: char("institution_id", { length: 36 })
@@ -423,7 +221,7 @@ export const workspaces = mysqlTable(
     ownerId: char("owner_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    scopeType: mysqlEnum("scope_type", ["personal", "class"]).notNull(),
+    scopeType: mysqlEnum("scope_type", ["personal"]).notNull(),
     scopeId: char("scope_id", { length: 36 }).notNull(),
     templateVersionId: char("template_version_id", { length: 36 }).references(
       () => templateVersions.id,
@@ -576,19 +374,233 @@ export const queryExecutions = mysqlTable(
   ],
 );
 
+export const erdDiagrams = mysqlTable(
+  "erd_diagrams",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    ownerId: char("owner_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    content: json("content").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [index("erd_diagrams_owner_idx").on(table.ownerId)],
+);
+
+export const codeWorkspaces = mysqlTable(
+  "code_workspaces",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    ownerId: char("owner_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    content: json("content").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [uniqueIndex("code_workspaces_owner_uq").on(table.ownerId)],
+);
+
+export const codeExecutions = mysqlTable(
+  "code_executions",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 }).notNull(),
+    actorId: char("actor_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    language: varchar("language", { length: 20 }).notNull(),
+    status: varchar("status", { length: 30 }).notNull(),
+    timeMs: int("time_ms", { unsigned: true }),
+    startedAt: timestamp("started_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("code_executions_actor_started_idx").on(
+      table.actorId,
+      table.startedAt,
+    ),
+  ],
+);
+
+export const savedQueries = mysqlTable(
+  "saved_queries",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    ownerId: char("owner_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    workspaceId: char("workspace_id", { length: 36 })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    sqlText: text("sql_text").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [
+    index("saved_queries_owner_workspace_idx").on(
+      table.ownerId,
+      table.workspaceId,
+    ),
+  ],
+);
+
+export const guiSessionPoolInstances = mysqlTable("gui_session_pool_instances", {
+  id: char("id", { length: 36 }).primaryKey(),
+  environment: varchar("environment", { length: 32 }).notNull(),
+  region: varchar("region", { length: 64 }).notNull(),
+  serviceRef: varchar("service_ref", { length: 255 }).notNull(),
+  state: mysqlEnum("state", ["active", "draining", "offline"])
+    .notNull()
+    .default("active"),
+  sessionCount: int("session_count").notNull().default(0),
+  capacity: json("capacity_json"),
+  createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+    .notNull()
+    .defaultNow(),
+});
+
+export const javaGuiWorkspaces = mysqlTable(
+  "java_gui_workspaces",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    ownerId: char("owner_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    content: json("content").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [uniqueIndex("java_gui_workspaces_owner_uq").on(table.ownerId)],
+);
+
+export const guiSessions = mysqlTable(
+  "gui_sessions",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    ownerId: char("owner_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    mainClassName: varchar("main_class_name", { length: 120 }).notNull(),
+    state: mysqlEnum("state", [
+      "requested",
+      "provisioning",
+      "running",
+      "stopped",
+      "failed",
+      "expired",
+    ])
+      .notNull()
+      .default("requested"),
+    maxRuntimeSeconds: int("max_runtime_seconds", { unsigned: true }).notNull(),
+    failureCode: varchar("failure_code", { length: 80 }),
+    startedAt: timestamp("started_at", { mode: "date", fsp: 3 }),
+    endsAt: timestamp("ends_at", { mode: "date", fsp: 3 }),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [
+    index("gui_sessions_state_idx").on(table.state),
+    index("gui_sessions_owner_created_idx").on(table.ownerId, table.createdAt),
+  ],
+);
+
+export const guiContainerAllocations = mysqlTable(
+  "gui_container_allocations",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    sessionId: char("session_id", { length: 36 })
+      .notNull()
+      .references(() => guiSessions.id, { onDelete: "restrict" }),
+    poolInstanceId: char("pool_instance_id", { length: 36 })
+      .notNull()
+      .references(() => guiSessionPoolInstances.id, { onDelete: "restrict" }),
+    containerRef: varchar("container_ref", { length: 255 }).notNull(),
+    internalHost: varchar("internal_host", { length: 255 }).notNull(),
+    websockifyPort: smallint("websockify_port", { unsigned: true }).notNull(),
+    allocatedAt: timestamp("allocated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    releasedAt: timestamp("released_at", { mode: "date", fsp: 3 }),
+    cleanupState: mysqlEnum("cleanup_state", [
+      "active",
+      "pending",
+      "cleaning",
+      "complete",
+      "failed",
+    ])
+      .notNull()
+      .default("active"),
+    cleanupAttempts: int("cleanup_attempts").notNull().default(0),
+    cleanupError: varchar("cleanup_error", { length: 80 }),
+  },
+  (table) => [
+    uniqueIndex("gui_container_allocations_session_uq").on(table.sessionId),
+    index("gui_container_allocations_cleanup_idx").on(
+      table.cleanupState,
+      table.cleanupAttempts,
+    ),
+  ],
+);
+
 export const platformSchema = {
   auditEvents,
-  classes,
-  classInvites,
-  classTeachers,
-  courses,
-  departments,
-  enrollments,
+  codeExecutions,
+  codeWorkspaces,
+  erdDiagrams,
+  guiContainerAllocations,
+  guiSessionPoolInstances,
+  guiSessions,
   institutionMemberships,
   institutions,
-  programs,
+  javaGuiWorkspaces,
   queryExecutions,
-  terms,
+  savedQueries,
+  sections,
   templateVersions,
   users,
   workspaceAllocations,

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  classCreateRequestSchema,
-  invitationCreateRequestSchema,
+  accountListQuerySchema,
+  adminCreateUserRequestSchema,
+  auditEventListQuerySchema,
   executionRequestSchema,
   interactiveExecutionLimits,
   rolePermissions,
@@ -41,22 +42,33 @@ describe("foundation contracts", () => {
     expect(result.success).toBe(false);
   });
 
-  it("requires opaque academic identifiers for class creation", () => {
-    expect(
-      classCreateRequestSchema.safeParse({
-        courseId: "DB101",
-        termId: "First Term",
-        section: "A",
-      }).success,
-    ).toBe(false);
+  it("defaults the account list page/pageSize and rejects a zero page", () => {
+    expect(accountListQuerySchema.parse({})).toEqual({ page: 1, pageSize: 20 });
+    expect(accountListQuerySchema.safeParse({ page: 0 }).success).toBe(false);
   });
 
-  it("bounds invitation usage by the approved class-size ceiling", () => {
-    expect(
-      invitationCreateRequestSchema.safeParse({
-        expiresAt: "2026-08-19T00:00:00.000Z",
-        usageLimit: 61,
-      }).success,
-    ).toBe(false);
+  it("rejects duplicate roles when an admin creates a user", () => {
+    const result = adminCreateUserRequestSchema.safeParse({
+      email: "new@example.edu",
+      displayName: "New Person",
+      roles: ["student", "student"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a unique multi-role admin user creation request", () => {
+    const result = adminCreateUserRequestSchema.safeParse({
+      email: "new@example.edu",
+      displayName: "New Person",
+      roles: ["student", "teacher"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("defaults the audit event list page/pageSize", () => {
+    expect(auditEventListQuerySchema.parse({})).toEqual({
+      page: 1,
+      pageSize: 20,
+    });
   });
 });

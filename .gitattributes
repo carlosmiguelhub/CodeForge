@@ -1,0 +1,4 @@
+# Shell scripts run inside Linux containers — CRLF line endings (the
+# Windows checkout default) break their shebang/parsing at container
+# runtime, so force LF regardless of core.autocrlf.
+*.sh text eol=lf

@@ -21,6 +21,31 @@ export interface ConfirmationPayload {
   readonly nonce: string;
 }
 
+// Scoped to one ephemeral Run (sessionId), not a logical workspace — unlike
+// ExecutionGrantPayload, this is the sole credential on its WebSocket
+// routes (native browser WebSocket can't send an Authorization header, so
+// there's no separate bearer token to cross-check against at verify time).
+export interface GuiSessionGrantPayload {
+  readonly kind: "gui-session";
+  readonly uid: string;
+  readonly accountId: string;
+  readonly institutionId: string;
+  readonly sessionId: string;
+  readonly issuedAt: number;
+  readonly expiresAt: number;
+  readonly nonce: string;
+}
+
+export interface InteractiveRunGrantPayload {
+  readonly kind: "interactive-run";
+  readonly uid: string;
+  readonly accountId: string;
+  readonly institutionId: string;
+  readonly issuedAt: number;
+  readonly expiresAt: number;
+  readonly nonce: string;
+}
+
 export interface AuthorizedWorkspaceExecution {
   readonly actorId: string;
   readonly institutionId: string;

@@ -1,20 +1,17 @@
 import type { Role } from "@sqweb/contracts";
 import {
-  Activity,
-  Bell,
-  BookOpen,
+  AppWindow,
   ChartNoAxesCombined,
   CircleGauge,
-  ClipboardCheck,
+  Code2,
   Database,
-  FileClock,
-  GraduationCap,
-  ListChecks,
+  Layers,
+  Network,
   ScrollText,
   ServerCog,
   Settings,
-  ShieldCheck,
   SquareTerminal,
+  Trophy,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -33,12 +30,22 @@ export const roleNavigation = {
       href: "/student/workspaces",
       icon: SquareTerminal,
     },
-    { label: "Classes", href: "/student/classes", icon: BookOpen },
-    { label: "Activities", href: "/student/activities", icon: Activity },
-    { label: "Submissions", href: "/student/submissions", icon: FileClock },
-    { label: "Grades", href: "/student/grades", icon: GraduationCap },
+    {
+      label: "Code Workspace",
+      href: "/student/code-workspace",
+      icon: Code2,
+    },
+    {
+      label: "ERD Workspace",
+      href: "/student/erd-workspace",
+      icon: Network,
+    },
     { label: "Saved Queries", href: "/student/saved-queries", icon: Database },
-    { label: "Notifications", href: "/notifications", icon: Bell },
+    {
+      label: "Java GUI Workspace",
+      href: "/student/java-gui-workspace",
+      icon: AppWindow,
+    },
   ],
   teacher: [
     { label: "Dashboard", href: "/teacher", icon: CircleGauge },
@@ -47,9 +54,22 @@ export const roleNavigation = {
       href: "/teacher/workspaces",
       icon: SquareTerminal,
     },
-    { label: "Classes", href: "/teacher/classes", icon: BookOpen },
-    { label: "Activities", href: "/teacher/activities", icon: Activity },
-    { label: "Grading", href: "/teacher/grading", icon: ClipboardCheck },
+    {
+      label: "Code Workspace",
+      href: "/teacher/code-workspace",
+      icon: Code2,
+    },
+    {
+      label: "ERD Workspace",
+      href: "/teacher/erd-workspace",
+      icon: Network,
+    },
+    { label: "Saved Queries", href: "/teacher/saved-queries", icon: Database },
+    {
+      label: "Java GUI Workspace",
+      href: "/teacher/java-gui-workspace",
+      icon: AppWindow,
+    },
     { label: "Database Templates", href: "/teacher/templates", icon: Database },
     { label: "Students", href: "/teacher/students", icon: Users },
     {
@@ -57,22 +77,20 @@ export const roleNavigation = {
       href: "/teacher/analytics",
       icon: ChartNoAxesCombined,
     },
-    { label: "Notifications", href: "/notifications", icon: Bell },
   ],
   administrator: [
     { label: "Dashboard", href: "/admin", icon: CircleGauge },
+    {
+      label: "Top Contributors",
+      href: "/admin/top-contributors",
+      icon: Trophy,
+    },
     { label: "Users", href: "/admin/users", icon: Users },
-    { label: "Academics", href: "/admin/academics", icon: GraduationCap },
-    { label: "Classes", href: "/admin/classes", icon: BookOpen },
+    { label: "Sections", href: "/admin/sections", icon: Layers },
     {
       label: "Database Infrastructure",
       href: "/admin/infrastructure",
       icon: ServerCog,
-    },
-    {
-      label: "Query Monitoring",
-      href: "/admin/query-monitor",
-      icon: ListChecks,
     },
     { label: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
     { label: "System Settings", href: "/admin/settings", icon: Settings },
@@ -84,5 +102,3 @@ export const roleLabels: Record<Role, string> = {
   teacher: "Teacher",
   administrator: "Administrator",
 };
-
-export const productIcon = ShieldCheck;

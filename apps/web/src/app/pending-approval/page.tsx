@@ -12,7 +12,7 @@ export default function PendingApprovalPage() {
     <IdentityFrame
       eyebrow="Account review"
       title="Approval pending"
-      description="Your verified teacher account is waiting for an administrator. SQWeb will not grant teacher permissions until the server-side membership is approved."
+      description="Your verified teacher account is waiting for an administrator. CodeForge will not grant teacher permissions until the server-side membership is approved."
     >
       <div className="space-y-3">
         <button

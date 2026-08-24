@@ -1,5 +1,5 @@
+import { UserList } from "@/components/admin/user-list";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { PendingAccountList } from "@/components/auth/pending-account-list";
 import { ProtectedRolePage } from "@/components/auth/protected-role-page";
 
 export default function AdministratorUsersPage() {
@@ -11,7 +11,7 @@ export default function AdministratorUsersPage() {
         eyebrow="Administrator workspace"
         pageTitle="Users"
       >
-        <PendingAccountList />
+        <UserList />
       </AppShell>
     </ProtectedRolePage>
   );

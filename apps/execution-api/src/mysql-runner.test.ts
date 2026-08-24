@@ -69,7 +69,13 @@ describe("MySqlRunner result collection", () => {
   it("requests schema metadata as named rows even when execution uses arrays", async () => {
     const query = vi
       .fn()
-      .mockResolvedValueOnce([[{ name: "students", type: "BASE TABLE" }], []])
+      .mockResolvedValueOnce([
+        [
+          { name: "students", type: "BASE TABLE" },
+          { name: "enrollments", type: "BASE TABLE" },
+        ],
+        [],
+      ])
       .mockResolvedValueOnce([
         [
           {
@@ -78,6 +84,24 @@ describe("MySqlRunner result collection", () => {
             data_type: "int",
             nullable: "NO",
             column_key: "PRI",
+          },
+          {
+            table_name: "enrollments",
+            name: "student_id",
+            data_type: "int",
+            nullable: "NO",
+            column_key: "MUL",
+          },
+        ],
+        [],
+      ])
+      .mockResolvedValueOnce([
+        [
+          {
+            table_name: "enrollments",
+            column_name: "student_id",
+            referenced_table: "students",
+            referenced_column: "id",
           },
         ],
         [],
@@ -91,16 +115,36 @@ describe("MySqlRunner result collection", () => {
 
     const schema = await new MySqlRunner().schema(credential);
 
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(3);
     expect(query.mock.calls[0]?.[0]).toMatchObject({ rowsAsArray: false });
     expect(query.mock.calls[1]?.[0]).toMatchObject({ rowsAsArray: false });
+    expect(query.mock.calls[2]?.[0]).toMatchObject({ rowsAsArray: false });
     expect(schema).toEqual({
       tables: [
         {
           name: "students",
           type: "table",
           columns: [
-            { name: "id", dataType: "int", nullable: false, key: "PRI" },
+            {
+              name: "id",
+              dataType: "int",
+              nullable: false,
+              key: "PRI",
+              references: null,
+            },
+          ],
+        },
+        {
+          name: "enrollments",
+          type: "table",
+          columns: [
+            {
+              name: "student_id",
+              dataType: "int",
+              nullable: false,
+              key: "MUL",
+              references: { table: "students", column: "id" },
+            },
           ],
         },
       ],

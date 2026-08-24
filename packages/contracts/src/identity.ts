@@ -20,6 +20,7 @@ export const accountProfileSchema = z.object({
   institutionId: z.string().uuid(),
   status: accountStatusSchema,
   roles: z.array(roleSchema),
+  sectionId: z.string().uuid().nullable(),
   authorizationVersion: z.number().int().nonnegative(),
 });
 export type AccountProfile = z.infer<typeof accountProfileSchema>;
@@ -31,27 +32,32 @@ export type RequestedRegistrationRole = z.infer<
   typeof requestedRegistrationRoleSchema
 >;
 
-export const registrationRequestSchema = z.object({
-  displayName: z.string().trim().min(2).max(120),
-  requestedRole: requestedRegistrationRoleSchema,
-});
+export const registrationRequestSchema = z
+  .object({
+    displayName: z.string().trim().min(2).max(120),
+    requestedRole: requestedRegistrationRoleSchema,
+    sectionId: z.string().uuid().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.requestedRole === "student" && !value.sectionId) {
+      context.addIssue({
+        code: "custom",
+        path: ["sectionId"],
+        message: "Select a section.",
+      });
+    }
+  });
 export type RegistrationRequest = z.infer<typeof registrationRequestSchema>;
 
+export const profileUpdateRequestSchema = z.object({
+  displayName: z.string().trim().min(2).max(120),
+});
+export type ProfileUpdateRequest = z.infer<typeof profileUpdateRequestSchema>;
+
 export const permissionSchema = z.enum([
-  "class:join",
-  "class:create",
-  "class:manage_own",
-  "class:manage_all",
-  "activity:submit",
-  "activity:create",
-  "activity:publish_own",
-  "grade:view_own",
-  "grade:manage_class",
   "workspace:execute_own",
   "workspace:reset_own",
-  "workspace:reset_class",
   "query:cancel_own",
-  "query:cancel_class",
   "query:cancel_any",
   "platform:manage_users",
   "platform:manage_settings",
@@ -60,27 +66,9 @@ export const permissionSchema = z.enum([
 export type Permission = z.infer<typeof permissionSchema>;
 
 export const rolePermissions = {
-  student: [
-    "class:join",
-    "activity:submit",
-    "grade:view_own",
-    "workspace:execute_own",
-    "workspace:reset_own",
-    "query:cancel_own",
-  ],
-  teacher: [
-    "class:create",
-    "class:manage_own",
-    "activity:create",
-    "activity:publish_own",
-    "grade:manage_class",
-    "workspace:execute_own",
-    "workspace:reset_class",
-    "query:cancel_own",
-    "query:cancel_class",
-  ],
+  student: ["workspace:execute_own", "workspace:reset_own", "query:cancel_own"],
+  teacher: ["workspace:execute_own", "workspace:reset_own", "query:cancel_own"],
   administrator: [
-    "class:manage_all",
     "query:cancel_any",
     "platform:manage_users",
     "platform:manage_settings",

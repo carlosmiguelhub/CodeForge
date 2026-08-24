@@ -21,6 +21,7 @@ const account = {
   institutionId: "00000000-0000-4000-8000-000000000001",
   status: "active" as const,
   roles: ["student" as const],
+  sectionId: null,
   authorizationVersion: 1,
 };
 const workspaceId = "00000000-0000-4000-8000-000000000020";

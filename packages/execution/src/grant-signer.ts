@@ -3,7 +3,12 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { AuthorizationError, type AccountProfile } from "@sqweb/auth";
 import { z } from "zod";
 
-import type { ConfirmationPayload, ExecutionGrantPayload } from "./types";
+import type {
+  ConfirmationPayload,
+  ExecutionGrantPayload,
+  GuiSessionGrantPayload,
+  InteractiveRunGrantPayload,
+} from "./types";
 
 const executionPayloadSchema = z.object({
   kind: z.literal("execution"),
@@ -20,6 +25,25 @@ const confirmationPayloadSchema = z.object({
   uid: z.string().min(1),
   workspaceId: z.string().uuid(),
   statementHash: z.string().regex(/^[a-f0-9]{64}$/),
+  issuedAt: z.number().int(),
+  expiresAt: z.number().int(),
+  nonce: z.string().uuid(),
+});
+const guiSessionPayloadSchema = z.object({
+  kind: z.literal("gui-session"),
+  uid: z.string().min(1),
+  accountId: z.string().uuid(),
+  institutionId: z.string().uuid(),
+  sessionId: z.string().uuid(),
+  issuedAt: z.number().int(),
+  expiresAt: z.number().int(),
+  nonce: z.string().uuid(),
+});
+const interactiveRunPayloadSchema = z.object({
+  kind: z.literal("interactive-run"),
+  uid: z.string().min(1),
+  accountId: z.string().uuid(),
+  institutionId: z.string().uuid(),
   issuedAt: z.number().int(),
   expiresAt: z.number().int(),
   nonce: z.string().uuid(),
@@ -129,6 +153,66 @@ export class ExecutionGrantSigner {
       throw new AuthorizationError(
         "INVALID_CONFIRMATION",
         "Destructive confirmation is invalid or expired.",
+        403,
+      );
+    return payload;
+  }
+
+  issueGuiSession(
+    account: AccountProfile,
+    sessionId: string,
+    lifetimeSeconds: number,
+  ) {
+    const now = Math.floor(Date.now() / 1000);
+    const payload: GuiSessionGrantPayload = {
+      kind: "gui-session",
+      uid: account.firebaseUid,
+      accountId: account.id,
+      institutionId: account.institutionId,
+      sessionId,
+      issuedAt: now,
+      expiresAt: now + lifetimeSeconds,
+      nonce: randomUUID(),
+    };
+    return { token: this.signPayload(payload), payload };
+  }
+
+  // No `uid` parameter to cross-check against, unlike verifyExecution —
+  // there is no separate bearer token on these WebSocket routes for the
+  // grant to be compared against (see GuiSessionGrantPayload's doc comment
+  // in ./types). The signature check above is what makes trusting the
+  // embedded uid/sessionId safe.
+  verifyGuiSession(token: string) {
+    const payload = guiSessionPayloadSchema.parse(this.verifyRaw(token));
+    if (payload.expiresAt < Math.floor(Date.now() / 1000))
+      throw new AuthorizationError(
+        "INVALID_GRANT",
+        "GUI session authorization expired.",
+        403,
+      );
+    return payload;
+  }
+
+  issueInteractiveRun(account: AccountProfile, lifetimeSeconds = 330) {
+    const now = Math.floor(Date.now() / 1000);
+    const payload: InteractiveRunGrantPayload = {
+      kind: "interactive-run",
+      uid: account.firebaseUid,
+      accountId: account.id,
+      institutionId: account.institutionId,
+      issuedAt: now,
+      expiresAt: now + lifetimeSeconds,
+      nonce: randomUUID(),
+    };
+    return { token: this.signPayload(payload), payload };
+  }
+
+  verifyInteractiveRun(token: string) {
+    const payload = interactiveRunPayloadSchema.parse(this.verifyRaw(token));
+    if (payload.expiresAt < Math.floor(Date.now() / 1000))
+      throw new AuthorizationError(
+        "INVALID_GRANT",
+        "Interactive run authorization expired.",
         403,
       );
     return payload;

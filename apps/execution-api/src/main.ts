@@ -1,5 +1,8 @@
 import { ExecutionGrantSigner } from "@sqweb/execution";
-import { MySqlExecutionRepository } from "@sqweb/database-platform";
+import {
+  MySqlCodeExecutionRepository,
+  MySqlExecutionRepository,
+} from "@sqweb/database-platform";
 import { MySqlParserClassifier } from "@sqweb/sql-classifier";
 import {
   GoogleWorkspaceSecretStore,
@@ -9,6 +12,10 @@ import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { createPool } from "mysql2/promise";
 import { z } from "zod";
 
+import {
+  RapidApiJudge0Client,
+  UnconfiguredCodeJudgeClient,
+} from "./code-judge-client";
 import { ExecutionService } from "./execution-service";
 import {
   FirebaseAppCheckVerifier,
@@ -34,6 +41,8 @@ const environment = z
     WORKSPACE_SECRET_STORE: z.enum(["local", "google"]).default("google"),
     WORKSPACE_LOCAL_SECRET_DIRECTORY: z.string().min(1).optional(),
     GOOGLE_CLOUD_PROJECT: z.string().min(1).optional(),
+    RAPIDAPI_JUDGE0_KEY: z.string().min(1).optional(),
+    RAPIDAPI_JUDGE0_HOST: z.string().min(1).default("judge0-ce.p.rapidapi.com"),
     PORT: z.coerce.number().int().positive().max(65_535).default(8081),
   })
   .superRefine((value, context) => {
@@ -107,6 +116,13 @@ const execution = new ExecutionService({
   secrets,
   runner,
 });
+const codeJudge = environment.RAPIDAPI_JUDGE0_KEY
+  ? new RapidApiJudge0Client(
+      environment.RAPIDAPI_JUDGE0_KEY,
+      environment.RAPIDAPI_JUDGE0_HOST,
+    )
+  : new UnconfiguredCodeJudgeClient();
+const codeExecutionHistory = new MySqlCodeExecutionRepository(platformPool);
 const verifier = new RequestVerifier(
   new FirebaseTokenVerifier(firebaseApp),
   environment.SQWEB_APP_CHECK_MODE === "local"
@@ -116,6 +132,8 @@ const verifier = new RequestVerifier(
 const server = await buildExecutionServer({
   verifier,
   execution,
+  codeJudge,
+  codeExecutionHistory,
   allowedOrigins: environment.SQWEB_ALLOWED_ORIGINS.split(",").map((value) =>
     value.trim(),
   ),

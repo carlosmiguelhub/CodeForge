@@ -5,10 +5,15 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn().mockResolvedValue(undefined),
   replace: vi.fn(),
   refresh: vi.fn(),
+  account: undefined as { displayName: string; email: string } | undefined,
 }));
 
 vi.mock("@/components/auth/auth-provider", () => ({
-  useAuth: () => ({ signOut: mocks.signOut }),
+  useAuth: () => ({ signOut: mocks.signOut, account: mocks.account }),
+}));
+
+vi.mock("@/components/theme/theme-provider", () => ({
+  useTheme: () => ({ theme: "dark", toggleTheme: vi.fn() }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -20,6 +25,8 @@ import { AppShell } from "./app-shell";
 describe("AppShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.account = undefined;
+    window.localStorage.clear();
   });
   it("renders teacher navigation from the shared role definition", () => {
     render(
@@ -36,10 +43,9 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("navigation", { name: "Teacher navigation" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Grading" })).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Grades" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Database Templates" }),
+    ).toBeInTheDocument();
   });
 
   it("marks the active route and exposes a skip link", () => {
@@ -95,9 +101,140 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
     await waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce());
     expect(mocks.replace).toHaveBeenCalledWith("/login");
     expect(mocks.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("shows the signed-in account's name and email in the profile menu", () => {
+    mocks.account = {
+      displayName: "Ada Lovelace",
+      email: "ada@example.edu",
+    };
+    render(
+      <AppShell
+        role="student"
+        activeHref="/student"
+        eyebrow="Student workspace"
+        pageTitle="Dashboard"
+      >
+        <p>Content</p>
+      </AppShell>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+    // "Ada Lovelace" now also renders beside the page title in the header,
+    // so both instances must be present rather than a single unique match.
+    expect(screen.getAllByText("Ada Lovelace")).toHaveLength(2);
+    expect(screen.getByText("ada@example.edu")).toBeInTheDocument();
+  });
+
+  it("shows the account name beside the page title in the header", () => {
+    mocks.account = { displayName: "Ada Lovelace", email: "ada@example.edu" };
+    render(
+      <AppShell
+        role="student"
+        activeHref="/student"
+        eyebrow="Student workspace"
+        pageTitle="Dashboard"
+      >
+        <p>Content</p>
+      </AppShell>,
+    );
+
+    const heading = screen.getByRole("heading", { name: /Dashboard/ });
+    expect(heading).toHaveTextContent("Dashboard");
+    expect(heading).toHaveTextContent("Ada Lovelace");
+  });
+
+  it("omits the separator when no account has loaded yet", () => {
+    render(
+      <AppShell
+        role="student"
+        activeHref="/student"
+        eyebrow="Student workspace"
+        pageTitle="Dashboard"
+      >
+        <p>Content</p>
+      </AppShell>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+  });
+
+  it("links to the account settings page from the profile menu", () => {
+    render(
+      <AppShell
+        role="student"
+        activeHref="/student"
+        eyebrow="Student workspace"
+        pageTitle="Dashboard"
+      >
+        <p>Content</p>
+      </AppShell>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+  });
+
+  it("keeps the sidebar collapsed across a fresh mount, as happens on a sidebar-link navigation", () => {
+    const { unmount } = render(
+      <AppShell
+        role="student"
+        activeHref="/student"
+        eyebrow="Student workspace"
+        pageTitle="Dashboard"
+      >
+        <p>Content</p>
+      </AppShell>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(
+      screen.getByRole("button", { name: "Expand sidebar" }),
+    ).toBeInTheDocument();
+
+    // Every page wraps its content in its own AppShell, so a sidebar-link
+    // click unmounts this instance and mounts a brand new one for the next
+    // page — simulate exactly that instead of re-rendering the same one.
+    unmount();
+    render(
+      <AppShell
+        role="student"
+        activeHref="/student/workspaces"
+        eyebrow="Student workspace"
+        pageTitle="SQL Workspace"
+      >
+        <p>Other content</p>
+      </AppShell>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Expand sidebar" }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens an honest empty state from the notifications button", () => {
+    render(
+      <AppShell
+        role="student"
+        activeHref="/student"
+        eyebrow="Student workspace"
+        pageTitle="Dashboard"
+      >
+        <p>Content</p>
+      </AppShell>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(screen.getByText("No notifications yet.")).toBeInTheDocument();
   });
 });

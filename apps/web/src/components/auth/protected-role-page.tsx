@@ -6,29 +6,24 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 
 import { useAuth } from "./auth-provider";
-import { destinationForAccount } from "@/lib/role-routing";
 
 export function ProtectedRolePage({
   role,
   children,
-}: Readonly<{ role: Role; children: ReactNode }>) {
+}: Readonly<{ role?: Role; children: ReactNode }>) {
   const auth = useAuth();
   const router = useRouter();
   const allowed =
     auth.state === "ready" &&
     auth.account?.status === "active" &&
-    auth.account.roles.includes(role);
+    (role === undefined || auth.account.roles.includes(role));
 
   useEffect(() => {
     if (auth.state === "initializing") return;
     if (!allowed) {
-      router.replace(
-        auth.state === "anonymous"
-          ? "/login"
-          : destinationForAccount(auth.account),
-      );
+      router.replace(auth.state === "anonymous" ? "/login" : "/continue");
     }
-  }, [allowed, auth.account, auth.state, router]);
+  }, [allowed, auth.state, router]);
 
   if (!allowed)
     return (

@@ -3,6 +3,9 @@
 import type * as Monaco from "monaco-editor";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
+import { defineEditorThemes, themeNameFor } from "@/lib/monaco-editor-theme";
+import { useTheme } from "@/components/theme/theme-provider";
+
 export interface SqlEditorController {
   getSelectedSql(): string;
   getCurrentSql(): string;
@@ -15,14 +18,24 @@ export const SqlEditor = forwardRef<
     value: string;
     onChange(value: string): void;
     fontSize: number;
+    onRunShortcut?: () => void;
   }
->(function SqlEditor({ value, onChange, fontSize }, forwardedRef) {
+>(function SqlEditor(
+  { value, onChange, fontSize, onRunShortcut },
+  forwardedRef,
+) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof Monaco | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
   const changeRef = useRef(onChange);
   changeRef.current = onChange;
+  const runShortcutRef = useRef(onRunShortcut);
+  runShortcutRef.current = onRunShortcut;
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   useImperativeHandle(forwardedRef, () => ({
     getSelectedSql() {
@@ -52,33 +65,35 @@ export const SqlEditor = forwardRef<
     if (!hostRef.current) return;
     let disposed = false;
     let editor: Monaco.editor.IStandaloneCodeEditor | null = null;
+    // Desktop wraps long lines — plenty of width, and horizontal scroll is
+    // an unnecessary extra step with a mouse. Mobile keeps the horizontal
+    // scrollbar/overflow instead, since it's built for a finger drag.
+    const narrowQuery = window.matchMedia("(max-width: 1023px)");
+    const applyWordWrap = () =>
+      editor?.updateOptions({ wordWrap: narrowQuery.matches ? "off" : "on" });
     void import("monaco-editor").then((monaco) => {
       if (disposed || !hostRef.current) return;
-      monaco.editor.defineTheme("sqweb-dark", {
-        base: "vs-dark",
-        inherit: true,
-        rules: [
-          { token: "keyword.sql", foreground: "BEC2FF" },
-          { token: "string.sql", foreground: "E5FD17" },
-          { token: "number.sql", foreground: "50D8E9" },
-          { token: "comment.sql", foreground: "73767C" },
-        ],
-        colors: {
-          "editor.background": "#080809",
-          "editor.foreground": "#E5E2E3",
-          "editorLineNumber.foreground": "#454655",
-          "editorLineNumber.activeForeground": "#9A9DA3",
-          "editor.selectionBackground": "#5E6BFF55",
-          "editorCursor.foreground": "#BEC2FF",
-          "editorIndentGuide.background1": "#1B1C1E",
-        },
+      monacoRef.current = monaco;
+      defineEditorThemes(monaco, {
+        keyword: "keyword.sql",
+        string: "string.sql",
+        number: "number.sql",
+        comment: "comment.sql",
       });
       editor = monaco.editor.create(hostRef.current, {
         value: valueRef.current,
         language: "sql",
-        theme: "sqweb-dark",
+        theme: themeNameFor(themeRef.current),
         automaticLayout: true,
-        wordWrap: "off",
+        wordWrap: narrowQuery.matches ? "off" : "on",
+        // A thicker, always-visible horizontal scrollbar so long lines
+        // stay easy to drag-scroll with a finger on touch screens instead
+        // of relying on a swipe gesture over the text itself.
+        scrollbar: {
+          horizontal: "visible",
+          horizontalScrollbarSize: 14,
+          verticalScrollbarSize: 14,
+        },
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         fontFamily: "var(--font-mono)",
@@ -93,9 +108,14 @@ export const SqlEditor = forwardRef<
       editor.onDidChangeModelContent(() => {
         if (editor) changeRef.current(editor.getValue());
       });
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+        runShortcutRef.current?.();
+      });
     });
+    narrowQuery.addEventListener("change", applyWordWrap);
     return () => {
       disposed = true;
+      narrowQuery.removeEventListener("change", applyWordWrap);
       editorRef.current = null;
       editor?.dispose();
     };
@@ -105,6 +125,10 @@ export const SqlEditor = forwardRef<
     const editor = editorRef.current;
     if (editor && editor.getValue() !== value) editor.setValue(value);
   }, [value]);
+
+  useEffect(() => {
+    monacoRef.current?.editor.setTheme(themeNameFor(theme));
+  }, [theme]);
 
   return (
     <div

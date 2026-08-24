@@ -1,6 +1,10 @@
 import axe from "axe-core";
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/components/theme/theme-provider", () => ({
+  useTheme: () => ({ theme: "dark", toggleTheme: vi.fn() }),
+}));
 
 import { IdentityFrame } from "./identity-frame";
 

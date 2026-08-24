@@ -116,11 +116,16 @@ export const executionResponseSchema = z.object({
 });
 export type ExecutionResponse = z.infer<typeof executionResponseSchema>;
 
+export const schemaColumnReferenceSchema = z.object({
+  table: z.string(),
+  column: z.string(),
+});
 export const schemaColumnSchema = z.object({
   name: z.string(),
   dataType: z.string(),
   nullable: z.boolean(),
   key: z.string(),
+  references: schemaColumnReferenceSchema.nullable(),
 });
 export const schemaTableSchema = z.object({
   name: z.string(),

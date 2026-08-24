@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@sqweb/auth": "0.1.0",
-    "@sqweb/classroom": "0.1.0",
+    "@sqweb/gui-session": "0.1.0",
     "@sqweb/workspace": "0.1.0",
     "@sqweb/contracts": "0.1.0",
     "@sqweb/execution": "0.1.0",

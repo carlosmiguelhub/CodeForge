@@ -1,19 +1,21 @@
 "use client";
 
 import {
+  erdDiagramSchema,
   executionGrantResponseSchema,
   executionResponseSchema,
   workspaceSchemaResponseSchema,
   type ExecutionResponse,
+  type Role,
   type WorkspaceSchemaResponse,
 } from "@sqweb/contracts";
 import {
   Braces,
   ChevronDown,
   ChevronRight,
+  CircleHelp,
   CircleStop,
   Database,
-  Eye,
   Expand,
   FilePlus2,
   History,
@@ -21,12 +23,16 @@ import {
   ListTree,
   Maximize2,
   MessageSquareText,
+  Network,
   Play,
   Plus,
   RefreshCw,
+  Save,
   Table2,
+  Trash2,
   X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -37,6 +43,12 @@ import {
 } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { randomId } from "@/lib/random-id";
+import { Spinner } from "@/components/ui/spinner";
+import { schemaToErdContent } from "../erd-workbench/schema-to-erd";
+import { GuideModal } from "./guide-modal";
+import { sqlGuideSamples, sqlGuideSections } from "./sql-guide-content";
+import { OPEN_SAVED_QUERY_KEY } from "./saved-query-list";
 import { SqlEditor, type SqlEditorController } from "./sql-editor";
 
 interface EditorTab {
@@ -55,20 +67,62 @@ interface HistoryItem {
 }
 
 const starterSql = `-- Your isolated MySQL workspace is ready.
-SELECT 'Hello from SQWeb' AS message, CURRENT_TIMESTAMP AS executed_at;`;
+SELECT 'Hello from CodeForge' AS message, CURRENT_TIMESTAMP AS executed_at;`;
 
 function quoteIdentifier(identifier: string) {
   return `\`${identifier.replaceAll("`", "``")}\``;
 }
 
+interface PersistedSqlTabs {
+  tabs: EditorTab[];
+  activeTabId: string;
+}
+
+// Query tabs live only in the browser's storage, scoped per workspace — a
+// refresh must not lose a query the student was still writing.
+function loadPersistedTabs(workspaceId: string): PersistedSqlTabs | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`sqweb:sql-tabs:${workspaceId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PersistedSqlTabs>;
+    const firstTab = parsed.tabs?.[0];
+    if (!Array.isArray(parsed.tabs) || !firstTab) return null;
+    return {
+      tabs: parsed.tabs,
+      activeTabId:
+        typeof parsed.activeTabId === "string"
+          ? parsed.activeTabId
+          : firstTab.id,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function SqlWorkbench({
   workspaceId,
-}: Readonly<{ workspaceId: string }>) {
+  role,
+}: Readonly<{
+  workspaceId: string;
+  role: Extract<Role, "student" | "teacher">;
+}>) {
   const { authorizedFetch, executionFetch } = useAuth();
-  const [tabs, setTabs] = useState<EditorTab[]>([
-    { id: "query-1", name: "Query 1", sql: starterSql },
-  ]);
-  const [activeTabId, setActiveTabId] = useState(() => tabs[0]?.id ?? "");
+  const router = useRouter();
+  const [generatingErd, setGeneratingErd] = useState(false);
+  const [schemaRefreshing, setSchemaRefreshing] = useState(false);
+  const [saveQueryOpen, setSaveQueryOpen] = useState(false);
+  const [saveQueryName, setSaveQueryName] = useState("");
+  const [savingQuery, setSavingQuery] = useState(false);
+  const [tabs, setTabs] = useState<EditorTab[]>(
+    () =>
+      loadPersistedTabs(workspaceId)?.tabs ?? [
+        { id: "query-1", name: "Query 1", sql: starterSql },
+      ],
+  );
+  const [activeTabId, setActiveTabId] = useState(
+    () => loadPersistedTabs(workspaceId)?.activeTabId ?? tabs[0]?.id ?? "",
+  );
   const [schema, setSchema] = useState<WorkspaceSchemaResponse>({ tables: [] });
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -84,7 +138,9 @@ export function SqlWorkbench({
   const [schemaWidth, setSchemaWidth] = useState(248);
   const [bottomHeight, setBottomHeight] = useState(280);
   const [fullScreen, setFullScreen] = useState(false);
+  const [resultsFullScreen, setResultsFullScreen] = useState(false);
   const [mobileSchemaOpen, setMobileSchemaOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<{
     sql: string;
     mode: "current" | "selected" | "script";
@@ -92,6 +148,51 @@ export function SqlWorkbench({
   } | null>(null);
   const editorRef = useRef<SqlEditorController>(null);
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const payload: PersistedSqlTabs = { tabs, activeTabId };
+      try {
+        window.localStorage.setItem(
+          `sqweb:sql-tabs:${workspaceId}`,
+          JSON.stringify(payload),
+        );
+      } catch {
+        // Storage can be full or unavailable (private browsing) — the
+        // tabs still work in-memory, they just won't survive a reload.
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [tabs, activeTabId, workspaceId]);
+
+  // Consume a one-time handoff left by the Saved Queries page's "Open in
+  // workbench" action — a fresh tab seeded with that query, once, then the
+  // handoff is cleared so it doesn't re-fire on a later visit or reload.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      let handoff: unknown;
+      try {
+        const raw = window.sessionStorage.getItem(OPEN_SAVED_QUERY_KEY);
+        if (!raw) return;
+        window.sessionStorage.removeItem(OPEN_SAVED_QUERY_KEY);
+        handoff = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      if (
+        !handoff ||
+        typeof handoff !== "object" ||
+        typeof (handoff as { name?: unknown }).name !== "string" ||
+        typeof (handoff as { sql?: unknown }).sql !== "string"
+      )
+        return;
+      const { name, sql } = handoff as { name: string; sql: string };
+      const tab = { id: randomId(), name, sql };
+      setTabs((current) => [...current, tab]);
+      setActiveTabId(tab.id);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const getGrant = useCallback(async () => {
     const response = await authorizedFetch(
@@ -107,24 +208,116 @@ export function SqlWorkbench({
     return executionGrantResponseSchema.parse(await response.json());
   }, [authorizedFetch, workspaceId]);
 
-  const loadSchema = useCallback(async () => {
+  const loadSchema = useCallback(
+    async (options?: { silent?: boolean }) => {
+      setSchemaRefreshing(true);
+      try {
+        const grant = await getGrant();
+        const response = await executionFetch(
+          `/v1/workspaces/${workspaceId}/schema`,
+          {
+            headers: { "X-SQWeb-Execution-Grant": grant.grant },
+          },
+        );
+        if (!response.ok)
+          throw new Error("Schema metadata could not be loaded.");
+        setSchema(workspaceSchemaResponseSchema.parse(await response.json()));
+        // Skip when this is a background refresh after a query (e.g. after
+        // DDL/DML) so it doesn't clobber the just-set execution status.
+        if (!options?.silent) setStatus("Connected · ready for SQL");
+      } catch (error) {
+        setStatus(
+          error instanceof Error
+            ? error.message
+            : "Workspace connection failed.",
+        );
+      } finally {
+        setSchemaRefreshing(false);
+      }
+    },
+    [executionFetch, getGrant, workspaceId],
+  );
+
+  async function generateErd() {
+    if (schema.tables.length === 0) return;
+    setGeneratingErd(true);
     try {
-      const grant = await getGrant();
-      const response = await executionFetch(
-        `/v1/workspaces/${workspaceId}/schema`,
-        {
-          headers: { "X-SQWeb-Execution-Grant": grant.grant },
-        },
-      );
-      if (!response.ok) throw new Error("Schema metadata could not be loaded.");
-      setSchema(workspaceSchemaResponseSchema.parse(await response.json()));
-      setStatus("Connected · ready for SQL");
+      const response = await authorizedFetch("/v1/erd-diagrams", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Workspace schema",
+          content: schemaToErdContent(schema),
+        }),
+      });
+      if (!response.ok) throw new Error("The ERD could not be generated.");
+      const diagram = erdDiagramSchema.parse(await response.json());
+      router.push(`/${role}/erd-workspace/${diagram.id}`);
     } catch (error) {
       setStatus(
-        error instanceof Error ? error.message : "Workspace connection failed.",
+        error instanceof Error
+          ? error.message
+          : "The ERD could not be generated.",
       );
+    } finally {
+      setGeneratingErd(false);
     }
-  }, [executionFetch, getGrant, workspaceId]);
+  }
+
+  // Reuses the existing execute() pipeline rather than a bespoke endpoint —
+  // a DROP script is classified as destructive by the same sql-classifier
+  // every other DROP/TRUNCATE goes through, so it naturally gets the same
+  // "Confirm destructive SQL" review dialog (showing the exact statements)
+  // before anything actually runs. Every table is listed in one DROP TABLE
+  // statement (rather than dropped one at a time, or via a SET
+  // FOREIGN_KEY_CHECKS toggle the classifier doesn't recognize and would
+  // reject the whole script for) — MySQL resolves foreign keys among
+  // tables listed together in a single DROP TABLE correctly on its own, no
+  // dependency ordering needed as long as every related table is in the
+  // list, which it is here since this is the workspace's full table set.
+  function deleteAllTables() {
+    if (schema.tables.length === 0 || running) return;
+    const views = schema.tables
+      .filter((table) => table.type === "view")
+      .map((table) => quoteIdentifier(table.name));
+    const tables = schema.tables
+      .filter((table) => table.type === "table")
+      .map((table) => quoteIdentifier(table.name));
+    const statements = [
+      ...(views.length ? [`DROP VIEW IF EXISTS ${views.join(", ")};`] : []),
+      ...(tables.length ? [`DROP TABLE IF EXISTS ${tables.join(", ")};`] : []),
+    ];
+    void execute(statements.join("\n"), "script");
+  }
+
+  function openSaveQuery() {
+    setSaveQueryName(activeTab?.name ?? "");
+    setSaveQueryOpen(true);
+  }
+
+  async function saveQuery() {
+    if (!activeTab || !saveQueryName.trim()) return;
+    setSavingQuery(true);
+    try {
+      const response = await authorizedFetch("/v1/saved-queries", {
+        method: "POST",
+        body: JSON.stringify({
+          workspaceId,
+          name: saveQueryName.trim(),
+          sql: activeTab.sql,
+        }),
+      });
+      if (!response.ok) throw new Error("The query could not be saved.");
+      setSaveQueryOpen(false);
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "The query could not be saved.",
+      );
+    } finally {
+      setSavingQuery(false);
+    }
+  }
 
   const loadHistory = useCallback(async () => {
     const response = await executionFetch(
@@ -146,13 +339,15 @@ export function SqlWorkbench({
     );
   }
 
-  function previewTable(tableName: string) {
+  // Inserts a starter SELECT for the table without running it — students
+  // still have to press Run themselves, so browsing the schema doesn't
+  // let them skip actually executing SQL.
+  function insertTableQuery(tableName: string) {
     const sql = `SELECT * FROM ${quoteIdentifier(tableName)} LIMIT 100;`;
     setSelectedTable(tableName);
     setExpanded((current) => new Set(current).add(tableName));
     updateActiveSql(sql);
     setMobileSchemaOpen(false);
-    void execute(sql, "current");
   }
 
   async function execute(
@@ -161,7 +356,7 @@ export function SqlWorkbench({
     confirmationToken?: string,
   ) {
     if (!sql.trim() || running) return;
-    const executionId = crypto.randomUUID();
+    const executionId = randomId();
     setRunning(true);
     setRunningId(executionId);
     setStatus("Running query…");
@@ -199,7 +394,7 @@ export function SqlWorkbench({
           : (parsed.messages[0]?.text ?? parsed.state),
       );
       if (parsed.state !== "successful") setResultTab("messages");
-      await Promise.all([loadSchema(), loadHistory()]);
+      await Promise.all([loadSchema({ silent: true }), loadHistory()]);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Execution failed.");
       setResultTab("messages");
@@ -231,12 +426,23 @@ export function SqlWorkbench({
 
   function addTab() {
     const tab = {
-      id: crypto.randomUUID(),
+      id: randomId(),
       name: `Query ${tabs.length + 1}`,
       sql: "",
     };
     setTabs((current) => [...current, tab]);
     setActiveTabId(tab.id);
+  }
+
+  function openSampleInNewTab(sql: string) {
+    const tab = {
+      id: randomId(),
+      name: `Query ${tabs.length + 1}`,
+      sql,
+    };
+    setTabs((current) => [...current, tab]);
+    setActiveTabId(tab.id);
+    setGuideOpen(false);
   }
 
   function closeTab(id: string) {
@@ -308,37 +514,22 @@ export function SqlWorkbench({
       className={`${fullScreen ? "bg-canvas fixed inset-0 z-50 p-3" : ""} border-structural bg-deep rounded-panel overflow-hidden border`}
       aria-label="SQL Workbench"
     >
-      <div className="border-divider bg-surface flex min-h-12 flex-wrap items-center gap-1 border-b px-2 py-1.5">
+      <div className="border-divider bg-surface flex min-h-12 flex-wrap items-center gap-x-1 gap-y-2 border-b px-2 py-1.5">
         <button
           onClick={() => run("current")}
           disabled={running}
           className="bg-action rounded-control flex min-h-9 items-center gap-2 px-3 text-xs font-semibold text-white disabled:opacity-50"
         >
-          <Play aria-hidden="true" size={14} /> Run current
-        </button>
-        <button
-          onClick={() => run("selected")}
-          disabled={running}
-          className="border-structural text-ink-secondary rounded-control min-h-9 border px-3 text-xs disabled:opacity-50"
-        >
-          Run selected
-        </button>
-        <button
-          onClick={() => run("script")}
-          disabled={running}
-          className="text-ink-secondary rounded-control min-h-9 px-3 text-xs disabled:opacity-50"
-        >
-          Run script
+          {running ? <Spinner /> : <Play aria-hidden="true" size={14} />} Run
         </button>
         {running ? (
           <button
             onClick={() => void cancel()}
-            className="text-error rounded-control flex min-h-9 items-center gap-2 px-3 text-xs"
+            className="text-danger rounded-control flex min-h-9 items-center gap-2 px-3 text-xs"
           >
             <CircleStop aria-hidden="true" size={14} /> Cancel
           </button>
         ) : null}
-        <span className="border-divider mx-1 h-5 border-l" />
         <button
           onClick={() => setMobileSchemaOpen(true)}
           className="border-structural text-ink-secondary rounded-control flex min-h-9 items-center gap-2 border px-3 text-xs lg:hidden"
@@ -346,23 +537,67 @@ export function SqlWorkbench({
           <ListTree aria-hidden="true" size={14} /> Schema
         </button>
         <button
-          onClick={() => {
-            const sql =
-              editorRef.current?.getCurrentSql() ?? activeTab?.sql ?? "";
-            void execute(`EXPLAIN ${sql.replace(/;\s*$/, "")}`, "current");
-          }}
-          disabled={running}
-          className="text-ink-secondary rounded-control min-h-9 px-3 text-xs"
+          onClick={() => setGuideOpen(true)}
+          className="text-action-soft rounded-control flex min-h-9 items-center gap-2 px-3 text-xs"
         >
-          EXPLAIN
+          <CircleHelp aria-hidden="true" size={14} /> Guide
         </button>
+        <div className="relative">
+          <button
+            onClick={() =>
+              saveQueryOpen ? setSaveQueryOpen(false) : openSaveQuery()
+            }
+            disabled={!activeTab?.sql.trim()}
+            aria-haspopup="dialog"
+            aria-expanded={saveQueryOpen}
+            className="border-structural text-ink-secondary rounded-control flex min-h-9 items-center gap-2 border px-3 text-xs disabled:opacity-50"
+          >
+            <Save aria-hidden="true" size={14} /> Save query
+          </button>
+          {saveQueryOpen ? (
+            <div className="border-structural bg-elevated rounded-control absolute top-full left-0 z-20 mt-1 w-64 border p-3 shadow-xl">
+              <label className="text-ink-muted mb-1.5 block text-[11px]">
+                Query name
+                <input
+                  autoFocus
+                  value={saveQueryName}
+                  onChange={(event) => setSaveQueryName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void saveQuery();
+                    if (event.key === "Escape") setSaveQueryOpen(false);
+                  }}
+                  className="border-structural bg-surface text-ink-primary rounded-control mt-1 w-full border px-2 py-1.5 text-sm"
+                  placeholder="e.g. Top scoring students"
+                />
+              </label>
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSaveQueryOpen(false)}
+                  className="text-ink-muted rounded-control px-2.5 py-1.5 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingQuery || !saveQueryName.trim()}
+                  onClick={() => void saveQuery()}
+                  className="bg-action rounded-control flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {savingQuery ? <Spinner size={12} /> : null}
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
         <span className="text-ink-muted ml-auto hidden text-[11px] sm:inline">
           Autocommit · 10s · 1,000 rows
         </span>
         <button
           onClick={() => setFullScreen((value) => !value)}
           aria-label={fullScreen ? "Exit full screen" : "Open full screen"}
-          className="text-ink-muted rounded-control grid size-9 place-items-center"
+          className="text-ink-muted rounded-control ml-auto grid size-9 shrink-0 place-items-center sm:ml-0"
         >
           {fullScreen ? (
             <Expand aria-hidden="true" size={15} />
@@ -374,7 +609,11 @@ export function SqlWorkbench({
 
       <div
         className="flex"
-        style={{ height: fullScreen ? "calc(100dvh - 72px)" : 680 }}
+        style={{
+          height: fullScreen
+            ? "calc(100dvh - 72px)"
+            : "max(420px, calc(100dvh - 132px))",
+        }}
       >
         <aside
           className="border-divider bg-sidebar hidden shrink-0 overflow-auto border-r lg:block"
@@ -387,13 +626,42 @@ export function SqlWorkbench({
             </span>
             <button
               onClick={() => void loadSchema()}
+              disabled={schemaRefreshing}
               aria-label="Refresh schema"
-              className="text-ink-muted grid size-8 place-items-center"
+              className="text-ink-muted grid size-8 place-items-center disabled:opacity-50"
             >
-              <RefreshCw aria-hidden="true" size={13} />
+              <RefreshCw
+                aria-hidden="true"
+                size={13}
+                className={
+                  schemaRefreshing
+                    ? "animate-spin motion-reduce:animate-none"
+                    : ""
+                }
+              />
             </button>
           </div>
           <div className="p-2">
+            <button
+              onClick={() => void generateErd()}
+              disabled={generatingErd || schema.tables.length === 0}
+              className="border-structural text-ink-secondary hover:text-ink-primary rounded-control mb-2 flex min-h-9 w-full items-center justify-center gap-2 border px-3 text-xs disabled:opacity-50"
+            >
+              {generatingErd ? (
+                <Spinner />
+              ) : (
+                <Network aria-hidden="true" size={14} />
+              )}
+              {generatingErd ? "Generating ERD…" : "Generate ERD"}
+            </button>
+            <button
+              onClick={deleteAllTables}
+              disabled={running || schema.tables.length === 0}
+              className="border-danger/30 text-danger hover:bg-danger/10 rounded-control mb-2 flex min-h-9 w-full items-center justify-center gap-2 border px-3 text-xs disabled:opacity-50"
+            >
+              <Trash2 aria-hidden="true" size={14} />
+              Delete all tables
+            </button>
             <div className="text-ink-muted flex items-center gap-2 px-2 py-1.5 text-xs">
               <Database aria-hidden="true" size={13} />
               <span>workspace</span>
@@ -436,9 +704,9 @@ export function SqlWorkbench({
                       )}
                     </button>
                     <button
-                      onClick={() => previewTable(table.name)}
+                      onClick={() => insertTableQuery(table.name)}
                       disabled={running}
-                      aria-label={`Preview rows from ${table.name}`}
+                      aria-label={`Insert a SELECT query for ${table.name}`}
                       className="text-ink-secondary flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-xs disabled:opacity-50"
                     >
                       <Table2 aria-hidden="true" size={13} />
@@ -485,19 +753,8 @@ export function SqlWorkbench({
                       ))}
                       <div className="mt-1 flex items-center gap-1">
                         <button
-                          onClick={() => previewTable(table.name)}
-                          disabled={running}
-                          className="text-action-soft hover:bg-elevated-high rounded-control flex min-h-8 items-center gap-1.5 px-2 text-[10px] disabled:opacity-50"
-                        >
-                          <Eye aria-hidden="true" size={11} /> View rows
-                        </button>
-                        <button
-                          onClick={() =>
-                            updateActiveSql(
-                              `SELECT * FROM ${quoteIdentifier(table.name)} LIMIT 100;`,
-                            )
-                          }
-                          className="text-ink-muted hover:bg-elevated-high rounded-control min-h-8 px-2 text-[10px]"
+                          onClick={() => insertTableQuery(table.name)}
+                          className="text-action-soft hover:bg-elevated-high rounded-control min-h-8 px-2 text-[10px]"
                         >
                           Insert SQL
                         </button>
@@ -529,7 +786,7 @@ export function SqlWorkbench({
           }}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="border-divider bg-secondary flex h-10 items-end overflow-x-auto border-b">
+            <div className="border-divider bg-panel flex h-10 items-end overflow-x-auto border-b">
               {tabs.map((tab) => (
                 <div
                   key={tab.id}
@@ -571,6 +828,7 @@ export function SqlWorkbench({
                 value={activeTab.sql}
                 onChange={updateActiveSql}
                 fontSize={13}
+                onRunShortcut={() => run("current")}
               />
             ) : null}
           </div>
@@ -585,33 +843,52 @@ export function SqlWorkbench({
             tabIndex={0}
             onPointerDown={beginVerticalResize}
             onKeyDown={resizeResultsByKeyboard}
-            className="bg-divider hover:bg-action cursor-row-resize"
+            className="bg-divider hover:bg-action relative cursor-row-resize touch-none before:absolute before:inset-x-0 before:-top-1.5 before:-bottom-1.5 before:content-['']"
           />
 
-          <div className="border-divider bg-surface min-h-0 overflow-hidden border-t">
-            <div className="border-divider flex h-10 items-center border-b px-2">
-              {(
-                [
-                  ["results", Table2, "Results"],
-                  ["messages", MessageSquareText, "Messages"],
-                  ["history", History, "History"],
-                ] as const
-              ).map(([id, Icon, label]) => (
-                <button
-                  key={id}
-                  onClick={() => setResultTab(id)}
-                  className={`${resultTab === id ? "text-ink-primary bg-elevated" : "text-ink-muted"} rounded-control flex min-h-8 items-center gap-2 px-3 text-xs`}
-                >
-                  <Icon aria-hidden="true" size={13} /> {label}
-                </button>
-              ))}
+          <div
+            className={`${resultsFullScreen ? "bg-canvas fixed inset-0 z-50 p-3" : ""} border-divider bg-surface min-h-0 overflow-hidden border-t`}
+          >
+            <div className="border-divider flex min-h-10 flex-wrap items-center gap-y-1 border-b px-2 py-1">
+              <div className="flex items-center gap-1">
+                {(
+                  [
+                    ["results", Table2, "Results"],
+                    ["messages", MessageSquareText, "Messages"],
+                    ["history", History, "History"],
+                  ] as const
+                ).map(([id, Icon, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => setResultTab(id)}
+                    className={`${resultTab === id ? "text-ink-primary bg-elevated" : "text-ink-muted"} rounded-control flex min-h-8 shrink-0 items-center gap-2 px-3 text-xs`}
+                  >
+                    <Icon aria-hidden="true" size={13} /> {label}
+                  </button>
+                ))}
+              </div>
               <span
                 role="status"
                 aria-live="polite"
-                className="text-ink-muted ml-auto truncate px-2 text-[11px]"
+                className="text-ink-muted ml-auto min-w-0 truncate px-2 text-[11px]"
               >
                 {status}
               </span>
+              <button
+                onClick={() => setResultsFullScreen((value) => !value)}
+                aria-label={
+                  resultsFullScreen
+                    ? "Exit full screen results"
+                    : "Open results in full screen"
+                }
+                className="text-ink-muted rounded-control grid size-8 shrink-0 place-items-center"
+              >
+                {resultsFullScreen ? (
+                  <Expand aria-hidden="true" size={14} />
+                ) : (
+                  <Maximize2 aria-hidden="true" size={14} />
+                )}
+              </button>
             </div>
             <div className="h-[calc(100%-2.5rem)] overflow-auto">
               {resultTab === "results" ? (
@@ -632,6 +909,18 @@ export function SqlWorkbench({
         </div>
       </div>
 
+      {guideOpen ? (
+        <GuideModal
+          title="SQL Workspace guide"
+          description="What you can do here, and a few queries to get started."
+          sections={sqlGuideSections}
+          samples={sqlGuideSamples}
+          samplesTitle="Sample queries to try"
+          onInsertSample={openSampleInNewTab}
+          onClose={() => setGuideOpen(false)}
+        />
+      ) : null}
+
       {confirmation ? (
         <div
           role="dialog"
@@ -650,7 +939,7 @@ export function SqlWorkbench({
               This statement can permanently remove workspace objects or data.
               Review it before continuing.
             </p>
-            <pre className="border-divider bg-deep text-error mt-4 max-h-40 overflow-auto border p-3 font-mono text-xs whitespace-pre-wrap">
+            <pre className="border-divider bg-deep text-danger mt-4 max-h-40 overflow-auto border p-3 font-mono text-xs whitespace-pre-wrap">
               {confirmation.sql}
             </pre>
             <div className="mt-5 flex justify-end gap-2">
@@ -666,7 +955,7 @@ export function SqlWorkbench({
                   setConfirmation(null);
                   void execute(pending.sql, pending.mode, pending.token);
                 }}
-                className="bg-error-container text-error rounded-control min-h-10 px-4 text-sm font-semibold"
+                className="bg-danger-container text-danger rounded-control min-h-10 px-4 text-sm font-semibold"
               >
                 Run destructive SQL
               </button>
@@ -701,9 +990,8 @@ export function SqlWorkbench({
             {schema.tables.map((table) => (
               <div key={table.name} className="border-divider border-b py-2">
                 <button
-                  onClick={() => previewTable(table.name)}
-                  disabled={running}
-                  className="text-ink-secondary flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-semibold disabled:opacity-50"
+                  onClick={() => insertTableQuery(table.name)}
+                  className="text-ink-secondary flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-semibold"
                 >
                   <Table2 aria-hidden="true" size={13} />
                   <span className="truncate">{table.name}</span>
@@ -716,19 +1004,7 @@ export function SqlWorkbench({
                 </p>
                 <div className="mt-1 flex gap-1 px-1">
                   <button
-                    onClick={() => previewTable(table.name)}
-                    disabled={running}
-                    className="text-action-soft flex min-h-9 items-center gap-1.5 px-2 text-[11px] disabled:opacity-50"
-                  >
-                    <Eye aria-hidden="true" size={12} /> View rows
-                  </button>
-                  <button
-                    onClick={() => {
-                      updateActiveSql(
-                        `SELECT * FROM ${quoteIdentifier(table.name)} LIMIT 100;`,
-                      );
-                      setMobileSchemaOpen(false);
-                    }}
+                    onClick={() => insertTableQuery(table.name)}
                     className="text-ink-muted min-h-9 px-2 text-[11px]"
                   >
                     Insert SQL
@@ -776,6 +1052,20 @@ function ResultGrid({
     );
   return (
     <div className="min-w-max">
+      <div className="border-divider bg-deep text-ink-muted sticky left-0 flex items-center gap-3 border-b px-3 py-1.5 text-[11px]">
+        <span>
+          {set.rows.length} {set.rows.length === 1 ? "row" : "rows"}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>
+          {set.columns.length} {set.columns.length === 1 ? "column" : "columns"}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>{result?.statistics.durationMs ?? 0} ms</span>
+        {set.truncated ? (
+          <span className="text-warning ml-auto">Truncated</span>
+        ) : null}
+      </div>
       {(result?.resultSets.length ?? 0) > 1 ? (
         <div className="border-divider bg-deep sticky left-0 flex border-b p-1">
           {result?.resultSets.map((_, index) => (
@@ -790,7 +1080,7 @@ function ResultGrid({
         </div>
       ) : null}
       <table className="border-collapse text-left text-xs">
-        <thead className="bg-secondary text-ink-secondary sticky top-0 z-10">
+        <thead className="bg-panel text-ink-secondary sticky top-0 z-10">
           <tr>
             {set.columns.map((column, index) => (
               <th
@@ -841,7 +1131,7 @@ function MessagePanel({
         result.messages.map((message, index) => (
           <div
             key={index}
-            className="border-divider bg-deep text-error border px-3 py-2 font-mono text-xs"
+            className="border-divider bg-deep text-danger border px-3 py-2 font-mono text-xs"
           >
             {message.text}
           </div>

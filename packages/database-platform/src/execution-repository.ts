@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { AuthorizationError } from "@sqweb/auth";
 import type {
   AuthorizedWorkspaceExecution,
@@ -5,6 +7,7 @@ import type {
   ExecutionRepository,
   QueryHistoryItem,
 } from "@sqweb/execution";
+import type { CodeExecutionStatus, CodeLanguage } from "@sqweb/contracts";
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 
 interface AccessRow extends RowDataPacket {
@@ -16,6 +19,19 @@ interface AccessRow extends RowDataPacket {
 
 interface CountRow extends RowDataPacket {
   count: number;
+}
+
+interface CodeActorRow extends RowDataPacket {
+  actor_id: string;
+  institution_id: string;
+}
+
+interface CodeHistoryRow extends RowDataPacket {
+  id: string;
+  language: CodeLanguage;
+  status: CodeExecutionStatus;
+  time_ms: number | null;
+  started_at: Date;
 }
 
 interface HistoryRow extends RowDataPacket {
@@ -206,5 +222,69 @@ export class MySqlExecutionRepository implements ExecutionRepository {
 
   async resolveForSchema(firebaseUid: string, grant: ExecutionGrantPayload) {
     return this.resolve(this.pool, firebaseUid, grant);
+  }
+}
+
+// Code executions aren't tied to a provisioned workspace (no database
+// access involved, no grant needed), so this only needs to resolve the
+// caller's own actor/institution — no workspace/allocation JOIN like
+// MySqlExecutionRepository.resolve above.
+export class MySqlCodeExecutionRepository {
+  constructor(private readonly pool: Pool) {}
+
+  private async resolveActor(firebaseUid: string) {
+    const [rows] = await this.pool.query<CodeActorRow[]>(
+      `SELECT u.id AS actor_id, m.institution_id
+         FROM users u
+         JOIN institution_memberships m
+           ON m.user_id = u.id AND m.approval_state = 'approved'
+        WHERE u.firebase_uid = ? AND u.status = 'active'
+        LIMIT 1`,
+      [firebaseUid],
+    );
+    return rows[0] ?? null;
+  }
+
+  async record(
+    firebaseUid: string,
+    language: CodeLanguage,
+    status: CodeExecutionStatus,
+    timeMs: number | null,
+  ) {
+    const actor = await this.resolveActor(firebaseUid);
+    // No active membership to attribute this run to — drop it silently
+    // rather than block the judge response the caller is waiting on.
+    if (!actor) return;
+    await this.pool.execute(
+      `INSERT INTO code_executions
+       (id, institution_id, actor_id, language, status, time_ms)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        randomUUID(),
+        actor.institution_id,
+        actor.actor_id,
+        language,
+        status,
+        timeMs,
+      ],
+    );
+  }
+
+  async listHistory(firebaseUid: string) {
+    const [rows] = await this.pool.query<CodeHistoryRow[]>(
+      `SELECT c.id, c.language, c.status, c.time_ms, c.started_at
+         FROM code_executions c
+         JOIN users u ON u.id = c.actor_id
+        WHERE u.firebase_uid = ?
+        ORDER BY c.started_at DESC LIMIT 50`,
+      [firebaseUid],
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      language: row.language,
+      status: row.status,
+      timeMs: row.time_ms,
+      startedAt: row.started_at.toISOString(),
+    }));
   }
 }

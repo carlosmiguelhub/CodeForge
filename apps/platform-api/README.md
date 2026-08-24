@@ -1,6 +1,6 @@
 # SQWeb Platform API
 
-Milestones 2 and 3 implement Firebase identity verification, App Check enforcement, server-authoritative account status and role policy, registration, administrator approval, academic catalog, Teacher-owned class, invitation, enrollment, and roster endpoints.
+Implements Firebase identity verification, App Check enforcement, server-authoritative account status and role policy, registration and administrator approval, and the SQL workspace, ERD diagram, code workspace, and saved-query APIs behind them.
 
 ## Required local configuration
 

@@ -1,12 +1,33 @@
 import { AuthorizationError } from "@sqweb/auth";
-import { executionRequestSchema } from "@sqweb/contracts";
+import type {
+  CodeExecutionHistoryItem,
+  CodeExecutionStatus,
+  CodeLanguage,
+} from "@sqweb/contracts";
+import {
+  codeExecutionRequestSchema,
+  executionRequestSchema,
+} from "@sqweb/contracts";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { z, ZodError } from "zod";
 
+import type { CodeJudgeClient } from "./code-judge-client";
 import type { ExecutionService } from "./execution-service";
 import { ConfirmationRequiredError } from "./execution-service";
 import type { RequestVerifier } from "./request-verifier";
+
+export interface CodeExecutionHistoryStore {
+  record(
+    firebaseUid: string,
+    language: CodeLanguage,
+    status: CodeExecutionStatus,
+    timeMs: number | null,
+  ): Promise<void>;
+  listHistory(
+    firebaseUid: string,
+  ): Promise<readonly CodeExecutionHistoryItem[]>;
+}
 
 const idSchema = z.object({ id: z.string().uuid() });
 const historySchema = z.object({ workspaceId: z.string().uuid() });
@@ -18,6 +39,8 @@ function header(value: string | string[] | undefined) {
 export async function buildExecutionServer(dependencies: {
   verifier: RequestVerifier;
   execution: ExecutionService;
+  codeJudge: CodeJudgeClient;
+  codeExecutionHistory: CodeExecutionHistoryStore;
   allowedOrigins: readonly string[];
   logger?: boolean;
 }) {
@@ -34,6 +57,8 @@ export async function buildExecutionServer(dependencies: {
                 "req.body.sql",
                 "req.body.grant",
                 "req.body.confirmation",
+                "req.body.sourceCode",
+                "req.body.stdin",
               ],
               censor: "[REDACTED]",
             },
@@ -132,6 +157,26 @@ export async function buildExecutionServer(dependencies: {
       identity,
       historySchema.parse(request.query).workspaceId,
     );
+  });
+  server.post("/v1/code-executions", async (request) => {
+    const identity = await verify(request);
+    const body = codeExecutionRequestSchema.parse(request.body);
+    const result = await dependencies.codeJudge.run(body);
+    // Best-effort: the judge result is what the caller is waiting on, a
+    // history-recording failure shouldn't turn that into a 500.
+    dependencies.codeExecutionHistory
+      .record(identity.uid, body.language, result.status, result.timeMs)
+      .catch((error: unknown) =>
+        request.log.error(
+          { err: error },
+          "Could not record code execution history",
+        ),
+      );
+    return result;
+  });
+  server.get("/v1/code-execution-history", async (request) => {
+    const identity = await verify(request);
+    return dependencies.codeExecutionHistory.listHistory(identity.uid);
   });
   return server;
 }

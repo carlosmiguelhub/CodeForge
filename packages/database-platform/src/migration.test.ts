@@ -22,6 +22,22 @@ const queryExecutionMigrationUrl = new URL(
   "../migrations/0005_query_execution.sql",
   import.meta.url,
 );
+const erdDiagramMigrationUrl = new URL(
+  "../migrations/0007_erd_diagrams.sql",
+  import.meta.url,
+);
+const codeWorkspaceMigrationUrl = new URL(
+  "../migrations/0008_code_workspace.sql",
+  import.meta.url,
+);
+const savedQueryMigrationUrl = new URL(
+  "../migrations/0009_saved_queries.sql",
+  import.meta.url,
+);
+const sectionsMigrationUrl = new URL(
+  "../migrations/0010_sections.sql",
+  import.meta.url,
+);
 
 describe("identity migration boundary", () => {
   it("creates only identity, membership, and audit platform tables", async () => {
@@ -102,5 +118,74 @@ describe("workspace migration boundary", () => {
     expect(sql).toContain("statement_hash CHAR(64)");
     expect(sql).toContain("rows_returned");
     expect(sql).not.toMatch(/sql_text|sql_content|credential_secret_ref/i);
+  });
+});
+
+describe("erd diagram migration boundary", () => {
+  it("creates only the erd_diagrams table, owned per-user", async () => {
+    const sql = await readFile(erdDiagramMigrationUrl, "utf8");
+    const tables = [...sql.matchAll(/CREATE TABLE ([a-z_]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(tables).toEqual(["erd_diagrams"]);
+    expect(sql).toContain("KEY erd_diagrams_owner_idx (owner_id)");
+    expect(sql).toContain(
+      "CONSTRAINT erd_diagrams_owner_fk FOREIGN KEY (owner_id) REFERENCES users(id)",
+    );
+    expect(sql).toContain("content JSON NOT NULL");
+  });
+});
+
+describe("code workspace migration boundary", () => {
+  it("creates one owner-unique workspace table and one execution-history table", async () => {
+    const sql = await readFile(codeWorkspaceMigrationUrl, "utf8");
+    const tables = [...sql.matchAll(/CREATE TABLE ([a-z_]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(tables).toEqual(["code_workspaces", "code_executions"]);
+    expect(sql).toContain("UNIQUE KEY code_workspaces_owner_uq (owner_id)");
+    expect(sql).toContain(
+      "CONSTRAINT code_workspaces_owner_fk FOREIGN KEY (owner_id) REFERENCES users(id)",
+    );
+    expect(sql).toContain("INDEX code_executions_actor_started_idx");
+    expect(sql).not.toMatch(/source_code|stdin|stdout/i);
+  });
+});
+
+describe("saved query migration boundary", () => {
+  it("ties each saved query to both its owner and a specific workspace", async () => {
+    const sql = await readFile(savedQueryMigrationUrl, "utf8");
+    const tables = [...sql.matchAll(/CREATE TABLE ([a-z_]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(tables).toEqual(["saved_queries"]);
+    expect(sql).toContain(
+      "KEY saved_queries_owner_workspace_idx (owner_id, workspace_id)",
+    );
+    expect(sql).toContain(
+      "CONSTRAINT saved_queries_workspace_fk FOREIGN KEY (workspace_id) REFERENCES workspaces(id)",
+    );
+    expect(sql).toContain("sql_text TEXT NOT NULL");
+  });
+});
+
+describe("sections migration boundary", () => {
+  it("creates an admin-managed section list and links it from users", async () => {
+    const sql = await readFile(sectionsMigrationUrl, "utf8");
+    const tables = [...sql.matchAll(/CREATE TABLE ([a-z_]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(tables).toEqual(["sections"]);
+    expect(sql).toContain(
+      "UNIQUE KEY sections_institution_name_uq (institution_id, name)",
+    );
+    expect(sql).toContain("ALTER TABLE users");
+    expect(sql).toContain(
+      "ADD CONSTRAINT users_section_fk FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL",
+    );
+    // Sections are archived (soft-removed), never dropped — existing
+    // students' historical section reference must survive a removal.
+    expect(sql).toContain("archived_at TIMESTAMP(3) NULL");
+    expect(sql).not.toMatch(/DROP TABLE|DELETE FROM/i);
   });
 });

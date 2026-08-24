@@ -19,6 +19,59 @@ import {
   MySqlRunner,
 } from "./mysql-runner";
 
+// MySQL's own FK error text names the referencing table, just in two
+// different shapes depending on the statement that triggered it:
+//   DROP TABLE parent:  "... on table 'enrollments'."
+//   DELETE/UPDATE a referenced row: "(`db`.`enrollments`, CONSTRAINT ...)"
+function extractReferencingTable(sqlMessage: string): string | undefined {
+  const dropMatch = /on table '([^']+)'/i.exec(sqlMessage);
+  if (dropMatch) return dropMatch[1];
+  const rowMatch = /`[^`]+`\.`([^`]+)`,\s*CONSTRAINT/i.exec(sqlMessage);
+  if (rowMatch) return rowMatch[1];
+  return undefined;
+}
+
+// Translates common MySQL error codes into plain-English guidance so
+// students see what went wrong and how to fix it, not just a bare error
+// code. The original MySQL message is still appended for anyone who wants
+// the technical detail.
+function friendlyMysqlMessage(error: {
+  code?: string;
+  sqlMessage?: string;
+}): string {
+  const detail = error.sqlMessage ? ` (${error.sqlMessage})` : "";
+  switch (error.code) {
+    case "ER_FK_CANNOT_DROP_PARENT":
+    case "ER_ROW_IS_REFERENCED":
+    case "ER_ROW_IS_REFERENCED_2": {
+      const referencingTable = extractReferencingTable(error.sqlMessage ?? "");
+      const suggestion = referencingTable
+        ? ` Drop or clear \`${referencingTable}\` first, then try again.`
+        : " Drop or alter the table that references it first, then try again.";
+      return `Another table still has a foreign key pointing to this one.${suggestion}${detail}`;
+    }
+    case "ER_NO_REFERENCED_ROW":
+    case "ER_NO_REFERENCED_ROW_2":
+      return `That value does not exist in the table it references — insert the parent row first.${detail}`;
+    case "ER_DUP_ENTRY":
+      return `That value already exists and must be unique.${detail}`;
+    case "ER_BAD_FIELD_ERROR":
+      return `Unknown column referenced in the query — check the spelling and table structure.${detail}`;
+    case "ER_NO_SUCH_TABLE":
+      return `That table does not exist in this workspace.${detail}`;
+    case "ER_TABLE_EXISTS_ERROR":
+      return `A table with that name already exists.${detail}`;
+    case "ER_PARSE_ERROR":
+      return `MySQL could not parse this SQL — check the syntax.${detail}`;
+    case "ER_BAD_NULL_ERROR":
+      return `A required (NOT NULL) column was left empty.${detail}`;
+    case "ER_DATA_TOO_LONG":
+      return `A value is too long for its column.${detail}`;
+    default:
+      return `MySQL rejected the query (${error.code ?? "QUERY_FAILED"}).${detail}`;
+  }
+}
+
 export class ConfirmationRequiredError extends Error {
   readonly statusCode = 409;
   constructor(
@@ -172,7 +225,9 @@ export class ExecutionService {
                   ? "The query was cancelled."
                   : state === "limit_exceeded"
                     ? "The query exceeded a result safety limit."
-                    : `MySQL rejected the query (${(error as { code?: string }).code ?? "QUERY_FAILED"}).`,
+                    : friendlyMysqlMessage(
+                        error as { code?: string; sqlMessage?: string },
+                      ),
           },
         ],
         statistics: {

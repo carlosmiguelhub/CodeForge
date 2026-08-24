@@ -58,11 +58,7 @@ export class MySqlWorkspaceRepository implements WorkspaceRepository {
     return rows[0] ? summary(rows[0]) : null;
   }
 
-  async findOwnedScope(
-    ownerId: string,
-    scope: "personal" | "class",
-    scopeId: string,
-  ) {
+  async findOwnedScope(ownerId: string, scope: "personal", scopeId: string) {
     const rows = await this.database
       .select()
       .from(workspaces)

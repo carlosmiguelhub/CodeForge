@@ -37,9 +37,9 @@ export function FoundationDashboard() {
               The command surface is ready for verified workflows.
             </h2>
             <p className="text-ink-muted mt-3 max-w-xl text-sm leading-6">
-              This preview validates SQWeb&apos;s shared shell, information
-              density, and accessibility baseline. No classroom or database
-              service is connected.
+              This preview validates CodeForge&apos;s shared shell, information
+              density, and accessibility baseline. No database service is
+              connected.
             </p>
           </div>
           <div className="rounded-control border-warning/30 bg-warning/5 text-warning flex items-center gap-2 self-start border px-3 py-2 text-xs md:self-auto">
@@ -161,7 +161,7 @@ export function FoundationDashboard() {
             Operational queue
           </h3>
           <p className="text-ink-muted mt-0.5 text-xs">
-            No sample classroom data is fabricated
+            No sample data is fabricated
           </p>
         </div>
         <div className="grid min-h-36 place-items-center px-6 py-8 text-center">
@@ -170,8 +170,8 @@ export function FoundationDashboard() {
               No workflows connected
             </p>
             <p className="text-ink-muted mt-1 max-w-md text-xs leading-5">
-              Classes, activities, grading, and database operations remain
-              outside this approved foundation milestone.
+              Database operations remain outside this approved foundation
+              milestone.
             </p>
           </div>
         </div>

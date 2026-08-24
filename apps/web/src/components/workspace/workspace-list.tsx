@@ -9,6 +9,9 @@ import { Database, RefreshCw, RotateCcw } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { randomId } from "@/lib/random-id";
+import { DEFAULT_POLL_INTERVAL_MS } from "@/lib/use-polling";
+import { Spinner } from "@/components/ui/spinner";
 import { SqlWorkbench } from "@/components/workbench/sql-workbench";
 
 const transitionalStates = new Set(["requested", "provisioning", "resetting"]);
@@ -24,8 +27,10 @@ export function WorkspaceList({
   const [workspaces, setWorkspaces] = useState<readonly WorkspaceSummary[]>([]);
   const [status, setStatus] = useState("Loading workspace…");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    setRefreshing(true);
     try {
       const response = await authorizedFetch("/v1/workspaces");
       if (!response.ok) throw new Error("The workspace could not be loaded.");
@@ -42,17 +47,24 @@ export function WorkspaceList({
           ? error.message
           : "The workspace could not be loaded.",
       );
+    } finally {
+      setRefreshing(false);
     }
   }, [authorizedFetch]);
 
   useEffect(() => {
     const first = window.setTimeout(() => void load(), 0);
-    const poll = window.setInterval(() => {
-      if (
-        workspaces.some((workspace) => transitionalStates.has(workspace.state))
-      )
-        void load();
-    }, 3000);
+    // Poll faster while a workspace is mid-transition (provisioning/
+    // resetting) for snappy state updates; otherwise still poll at a
+    // slower, "live snap" cadence so changes made elsewhere show up here
+    // without a manual refresh.
+    const hasTransitional = workspaces.some((workspace) =>
+      transitionalStates.has(workspace.state),
+    );
+    const poll = window.setInterval(
+      () => void load(),
+      hasTransitional ? 3000 : DEFAULT_POLL_INTERVAL_MS,
+    );
     return () => {
       window.clearTimeout(first);
       window.clearInterval(poll);
@@ -67,7 +79,7 @@ export function WorkspaceList({
         "/v1/workspaces",
         {
           method: "POST",
-          headers: { "Idempotency-Key": crypto.randomUUID() },
+          headers: { "Idempotency-Key": randomId() },
           body: JSON.stringify({ scope: "personal" }),
         },
         true,
@@ -100,7 +112,7 @@ export function WorkspaceList({
         `/v1/workspaces/${workspaceId}/reset`,
         {
           method: "POST",
-          headers: { "Idempotency-Key": crypto.randomUUID() },
+          headers: { "Idempotency-Key": randomId() },
           body: JSON.stringify({ reason }),
         },
         true,
@@ -117,49 +129,66 @@ export function WorkspaceList({
     }
   }
 
+  const hasReadyWorkspace = workspaces.some(
+    (workspace) => workspace.state === "ready",
+  );
+
   return (
     <div className="space-y-5">
-      <section className="border-structural bg-surface rounded-panel border">
-        <div className="border-divider flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 className="font-heading text-ink-primary text-lg font-semibold tracking-[-0.02em]">
-              {role === "teacher" ? "Teacher" : "Student"} personal MySQL
-              workspace
-            </h2>
-            <p className="text-ink-muted mt-1 max-w-2xl text-xs">
-              SQWeb provisions a private database account. Credentials remain
-              server-side and are never returned here.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="border-structural text-ink-muted hover:text-ink-primary rounded-control flex min-h-10 items-center gap-2 border px-3 text-xs"
-          >
-            <RefreshCw aria-hidden="true" size={14} /> Refresh
-          </button>
-        </div>
-        {workspaces.length === 0 ? (
-          <div className="p-4">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void requestWorkspace()}
-              className="bg-action rounded-control min-h-10 px-4 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              Request personal workspace
-            </button>
-          </div>
-        ) : null}
-      </section>
+      {!hasReadyWorkspace ? (
+        <>
+          <section className="border-structural bg-surface rounded-panel border">
+            <div className="border-divider flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+              <div>
+                <h2 className="font-heading text-ink-primary text-lg font-semibold tracking-[-0.02em]">
+                  {role === "teacher" ? "Teacher" : "Student"} personal MySQL
+                  workspace
+                </h2>
+                <p className="text-ink-muted mt-1 max-w-2xl text-xs">
+                  CodeForge provisions a private database account. Credentials
+                  remain server-side and are never returned here.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void load()}
+                disabled={refreshing}
+                className="border-structural text-ink-muted hover:text-ink-primary rounded-control flex min-h-10 items-center gap-2 border px-3 text-xs disabled:opacity-50"
+              >
+                <RefreshCw
+                  aria-hidden="true"
+                  size={14}
+                  className={
+                    refreshing ? "animate-spin motion-reduce:animate-none" : ""
+                  }
+                />{" "}
+                Refresh
+              </button>
+            </div>
+            {workspaces.length === 0 ? (
+              <div className="p-4">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void requestWorkspace()}
+                  className="bg-action rounded-control flex min-h-10 items-center gap-2 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {busy ? <Spinner /> : null}
+                  Request personal workspace
+                </button>
+              </div>
+            ) : null}
+          </section>
 
-      <p
-        role="status"
-        aria-live="polite"
-        className="text-ink-muted min-h-5 text-xs"
-      >
-        {status}
-      </p>
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-ink-muted min-h-5 text-xs"
+          >
+            {status}
+          </p>
+        </>
+      ) : null}
 
       {workspaces.map((workspace) => (
         <div key={workspace.id} className="space-y-5">
@@ -234,14 +263,19 @@ export function WorkspaceList({
                     disabled={busy}
                     className="border-structural text-ink-secondary hover:text-ink-primary rounded-control flex min-h-10 items-center justify-center gap-2 border px-4 text-xs disabled:opacity-50"
                   >
-                    <RotateCcw aria-hidden="true" size={14} /> Reset safely
+                    {busy ? (
+                      <Spinner />
+                    ) : (
+                      <RotateCcw aria-hidden="true" size={14} />
+                    )}
+                    Reset safely
                   </button>
                 </form>
               ) : null}
             </article>
           ) : null}
           {workspace.state === "ready" ? (
-            <SqlWorkbench workspaceId={workspace.id} />
+            <SqlWorkbench workspaceId={workspace.id} role={role} />
           ) : null}
         </div>
       ))}

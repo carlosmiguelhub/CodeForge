@@ -1,0 +1,35 @@
+/*
+ * @xyflow/react's default stylesheet is light-mode-oriented (white Controls
+ * buttons, light dot grid) regardless of the app's theme. These variables
+ * (documented by the library, with a `-default` fallback baked into its own
+ * CSS) override that styling to track our design tokens, so the canvas and
+ * Controls follow data-theme automatically instead of needing per-render
+ * style props.
+ */
+.react-flow {
+  --xy-background-color: var(--color-canvas);
+  --xy-background-pattern-color: var(--color-structural);
+
+  --xy-controls-button-background-color: var(--color-surface);
+  --xy-controls-button-background-color-hover: var(--color-elevated);
+  --xy-controls-button-color: var(--color-ink-muted);
+  --xy-controls-button-color-hover: var(--color-ink-primary);
+  --xy-controls-button-border-color: var(--color-structural);
+  --xy-controls-box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.35);
+
+  --xy-node-background-color: var(--color-elevated);
+  --xy-node-border-default: 1px solid var(--color-structural);
+  --xy-node-color: var(--color-ink-primary);
+
+  --xy-selection-background-color: color-mix(
+    in srgb,
+    var(--color-action) 10%,
+    transparent
+  );
+  --xy-selection-border-default: 1px dotted var(--color-action);
+
+  --xy-edge-label-background-color: var(--color-surface);
+  --xy-edge-label-color: var(--color-ink);
+
+  --xy-attribution-background-color: transparent;
+}

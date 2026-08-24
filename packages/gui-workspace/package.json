@@ -1,0 +1,17 @@
+{
+  "name": "@sqweb/gui-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sqweb/auth": "0.1.0",
+    "@sqweb/contracts": "0.1.0"
+  }
+}
