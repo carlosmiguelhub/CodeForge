@@ -21,6 +21,7 @@ export interface InteractiveRunServerDependencies {
   readonly maxRuntimeSeconds: number;
   readonly startTimeoutMs?: number;
   readonly maxOutputBytes?: number;
+  readonly maxConcurrentRuns?: number;
   readonly logger?: boolean;
 }
 
@@ -42,6 +43,11 @@ export async function buildInteractiveRunServer(
   const consumedNonces = new Map<string, number>();
   const startTimeoutMs = dependencies.startTimeoutMs ?? 10_000;
   const maxOutputBytes = dependencies.maxOutputBytes ?? 1024 * 1024;
+  const maxConcurrentRuns = dependencies.maxConcurrentRuns ?? 4;
+  // Shared across every connection this server instance handles — this is
+  // one Node process talking to one Docker daemon, so a plain in-memory
+  // counter is the whole story (no cross-process coordination needed).
+  let activeRuns = 0;
 
   server.get("/health", async () => ({ status: "ok" }));
   server.get("/v1/interactive-runs", { websocket: true }, (socket, request) => {
@@ -71,14 +77,29 @@ export async function buildInteractiveRunServer(
     let pendingStdinBytes = 0;
     const pendingStdin: string[] = [];
     let runtimeTimer: ReturnType<typeof setTimeout> | undefined;
+    let slotAcquired = false;
+    let slotReleased = false;
 
     const send = (message: InteractiveRunServerMessage) => {
       if (socket.readyState === WebSocket.OPEN)
         socket.send(JSON.stringify(message));
     };
+    // Safe to call from every teardown path (fail(), socket close, socket
+    // error) even when no slot was ever taken — only decrements once, and
+    // only if startRun actually reserved a slot.
+    const releaseSlot = () => {
+      if (!slotAcquired || slotReleased) return;
+      slotReleased = true;
+      activeRuns--;
+    };
     const stopSession = async () => {
       stopRequested = true;
       if (session) await session.stop().catch(() => undefined);
+      // Released after stop() resolves (the container is actually removed
+      // by then, see DockerInteractiveRunManager.stop's cleanup), not before
+      // — a slot should stay reserved for as long as the container it
+      // represents still exists on the box.
+      releaseSlot();
     };
     const fail = (message: string, closeCode = 4400) => {
       if (phase === "finished") return;
@@ -119,6 +140,12 @@ export async function buildInteractiveRunServer(
         });
         session = started;
         if (closed || stopRequested) {
+          // The socket already went away (or fail() already ran) while the
+          // container was still being provisioned — whichever of those
+          // called stopSession() already released this slot (session was
+          // still undefined at that point, so stopSession() skipped
+          // session.stop() and released immediately). Just tear the
+          // now-provisioned container down; don't release again.
           await started.stop().catch(() => undefined);
           return;
         }
@@ -134,6 +161,11 @@ export async function buildInteractiveRunServer(
             if (phase === "finished" || closed || stopRequested) return;
             phase = "finished";
             if (runtimeTimer) clearTimeout(runtimeTimer);
+            // wait() only resolves after the container is already removed
+            // (see DockerInteractiveRunManager.start) — no stop() call comes
+            // on this path, so this is the one place that must release the
+            // slot itself for a run that exits on its own.
+            releaseSlot();
             send({ type: "exit", exitCode });
             if (socket.readyState === WebSocket.OPEN)
               socket.close(1000, "complete");
@@ -163,6 +195,16 @@ export async function buildInteractiveRunServer(
           fail("The first message must start the run", 4400);
           return;
         }
+        // Reserve the slot synchronously, before any await — two "start"
+        // messages arriving in the same tick must not both pass this check
+        // (Node is single-threaded, so this compare-and-increment can't race
+        // as long as nothing async happens between them).
+        if (activeRuns >= maxConcurrentRuns) {
+          fail("Server is at capacity, try again shortly", 4429);
+          return;
+        }
+        activeRuns++;
+        slotAcquired = true;
         void startRun(message);
         return;
       }

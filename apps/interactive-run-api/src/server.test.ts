@@ -23,24 +23,36 @@ const account = {
   authorizationVersion: 1,
 };
 
+interface FakeSession {
+  readonly spec: InteractiveRunSpec;
+  readonly writes: string[];
+  stopped: boolean;
+  finish(code: number): void;
+}
+
 class FakeRunManager implements InteractiveRunManager {
   readonly started = vi.fn();
-  readonly writes: string[] = [];
-  stopped = false;
-  spec: InteractiveRunSpec | undefined;
-  private resolveExit!: (code: number) => void;
-  private readonly exit = new Promise<number>((resolve) => {
-    this.resolveExit = resolve;
-  });
+  readonly sessions: FakeSession[] = [];
 
   async start(spec: InteractiveRunSpec): Promise<InteractiveRunSession> {
-    this.spec = spec;
     this.started(spec.language, spec.sourceCode);
+    const writes: string[] = [];
+    let resolveExit!: (code: number) => void;
+    const exit = new Promise<number>((resolve) => {
+      resolveExit = resolve;
+    });
+    const fakeSession: FakeSession = {
+      spec,
+      writes,
+      stopped: false,
+      finish: (code) => resolveExit(code),
+    };
+    this.sessions.push(fakeSession);
     return {
-      writeStdin: (data) => this.writes.push(data),
-      wait: () => this.exit,
+      writeStdin: (data) => writes.push(data),
+      wait: () => exit,
       stop: async () => {
-        this.stopped = true;
+        fakeSession.stopped = true;
       },
     };
   }
@@ -49,8 +61,16 @@ class FakeRunManager implements InteractiveRunManager {
     return 0;
   }
 
+  // Convenience accessors for the common single-run tests below — the
+  // multi-run concurrency-cap tests index into `sessions` directly.
+  get spec(): InteractiveRunSpec | undefined {
+    return this.sessions.at(-1)?.spec;
+  }
+  get writes(): string[] {
+    return this.sessions.at(-1)?.writes ?? [];
+  }
   finish(code: number) {
-    this.resolveExit(code);
+    this.sessions.at(-1)!.finish(code);
   }
 }
 
@@ -64,24 +84,46 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => server.close()));
 });
 
-async function setup(runs = new FakeRunManager()) {
+async function setup(
+  options: {
+    runs?: FakeRunManager;
+    maxConcurrentRuns?: number;
+  } = {},
+) {
+  const runs = options.runs ?? new FakeRunManager();
   const server = await buildInteractiveRunServer({
     grantSigner: signer,
     runs,
     maxRuntimeSeconds: 60,
     startTimeoutMs: 1_000,
     logger: false,
+    ...(options.maxConcurrentRuns !== undefined
+      ? { maxConcurrentRuns: options.maxConcurrentRuns }
+      : {}),
   });
   servers.push(server);
   await server.listen({ host: "127.0.0.1", port: 0 });
   const address = server.server.address();
   if (!address || typeof address === "string") throw new Error("NO_TEST_PORT");
-  const token = signer.issueInteractiveRun(account, 60).token;
+  const issueToken = () => signer.issueInteractiveRun(account, 60).token;
   return {
     runs,
-    token,
+    token: issueToken(),
+    issueToken,
     url: `ws://127.0.0.1:${address.port}/v1/interactive-runs`,
   };
+}
+
+async function startRun(
+  url: string,
+  token: string,
+  sourceCode = "print('hi')",
+) {
+  const socket = await connect(url, token);
+  socket.send(
+    JSON.stringify({ type: "start", language: "python", sourceCode }),
+  );
+  return socket;
 }
 
 async function connect(url: string, token: string) {
@@ -150,5 +192,66 @@ describe("interactive run websocket", () => {
     const socket = new WebSocket(`${url}?token=invalid`);
     const [code] = (await once(socket, "close")) as [number];
     expect(code).toBe(4401);
+  });
+});
+
+describe("interactive run concurrency cap", () => {
+  it("rejects a new run once the limit is reached, then accepts one again once a slot frees up", async () => {
+    const { runs, url, issueToken } = await setup({ maxConcurrentRuns: 2 });
+
+    const first = await startRun(url, issueToken());
+    const second = await startRun(url, issueToken());
+    await vi.waitFor(() => expect(runs.started).toHaveBeenCalledTimes(2));
+
+    const third = new WebSocket(
+      `${url}?token=${encodeURIComponent(issueToken())}`,
+    );
+    await once(third, "open");
+    const rejection = nextJson(third);
+    third.send(
+      JSON.stringify({
+        type: "start",
+        language: "python",
+        sourceCode: "print('over capacity')",
+      }),
+    );
+    await expect(rejection).resolves.toEqual({
+      type: "error",
+      message: "Server is at capacity, try again shortly",
+    });
+    const [thirdCloseCode] = (await once(third, "close")) as [number];
+    expect(thirdCloseCode).toBe(4429);
+    // The rejected attempt never reaches the run manager at all.
+    expect(runs.started).toHaveBeenCalledTimes(2);
+
+    // Finishing the first run frees its slot.
+    const firstExit = nextJson(first);
+    runs.sessions[0]!.finish(0);
+    await expect(firstExit).resolves.toEqual({ type: "exit", exitCode: 0 });
+    await once(first, "close");
+
+    const fourth = await startRun(url, issueToken());
+    await vi.waitFor(() => expect(runs.started).toHaveBeenCalledTimes(3));
+
+    second.close();
+    fourth.close();
+  });
+
+  it("frees a slot when a run is stopped by the client closing the socket", async () => {
+    const { runs, url, issueToken } = await setup({ maxConcurrentRuns: 1 });
+
+    const first = await startRun(url, issueToken());
+    await vi.waitFor(() => expect(runs.started).toHaveBeenCalledTimes(1));
+
+    first.close();
+    await once(first, "close");
+    // stop() resolving is what the server waits on before releasing the
+    // slot — the fake's stop() settles synchronously, so this should be
+    // immediate, but give the close handler's async stopSession() a tick.
+    await vi.waitFor(() => expect(runs.sessions[0]!.stopped).toBe(true));
+
+    const second = await startRun(url, issueToken());
+    await vi.waitFor(() => expect(runs.started).toHaveBeenCalledTimes(2));
+    second.close();
   });
 });

@@ -16,9 +16,11 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { BottomNavBar } from "./bottom-nav-bar";
 import { roleLabels, roleNavigation } from "./navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useStandaloneDisplayMode } from "@/lib/use-standalone-display-mode";
 
 interface AppShellProps {
   readonly role: Role;
@@ -56,6 +58,7 @@ export function AppShell({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const isStandalone = useStandaloneDisplayMode();
   const { account, signOut } = useAuth();
   const router = useRouter();
   const initial = (
@@ -202,18 +205,29 @@ export function AppShell({
           </div>
         </aside>
 
+        {isStandalone ? (
+          <BottomNavBar
+            role={role}
+            activeHref={activeHref}
+            moreOpen={isMobileOpen}
+            onMoreClick={() => setIsMobileOpen(true)}
+          />
+        ) : null}
+
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="border-structural bg-canvas/95 z-20 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6 lg:px-8">
-            <button
-              type="button"
-              className="rounded-control border-structural bg-surface text-ink-muted hover:text-ink-primary grid size-9 place-items-center border lg:hidden"
-              aria-label="Open navigation"
-              aria-controls="primary-navigation"
-              aria-expanded={isMobileOpen}
-              onClick={() => setIsMobileOpen(true)}
-            >
-              <Menu aria-hidden="true" size={18} />
-            </button>
+            {!isStandalone ? (
+              <button
+                type="button"
+                className="rounded-control border-structural bg-surface text-ink-muted hover:text-ink-primary grid size-9 place-items-center border lg:hidden"
+                aria-label="Open navigation"
+                aria-controls="primary-navigation"
+                aria-expanded={isMobileOpen}
+                onClick={() => setIsMobileOpen(true)}
+              >
+                <Menu aria-hidden="true" size={18} />
+              </button>
+            ) : null}
 
             <div className="min-w-0 flex-1">
               <p className="text-ink-muted truncate text-[11px] font-medium tracking-[0.08em] uppercase">
@@ -314,7 +328,11 @@ export function AppShell({
           <main
             id="main-content"
             tabIndex={-1}
-            className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+            className={`flex-1 overflow-y-auto px-4 pt-6 sm:px-6 lg:px-8 lg:py-8 ${
+              isStandalone
+                ? "pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-8"
+                : "pb-6 lg:pb-8"
+            }`}
           >
             <div className="mx-auto max-w-[1600px]">{children}</div>
           </main>

@@ -7,9 +7,6 @@ import { buildInteractiveRunServer } from "./server";
 
 const environment = z
   .object({
-    NODE_ENV: z
-      .enum(["development", "test", "production"])
-      .default("development"),
     SQWEB_EXECUTION_GRANT_SECRET: z.string().min(32),
     CODE_RUNTIME_IMAGE_TAG: z
       .string()
@@ -31,16 +28,18 @@ const environment = z
       .int()
       .min(10_000)
       .default(120_000),
+    // Bounds how many containers this one Docker daemon will ever run for
+    // interactive runs at once. Size this to what the box can actually hold
+    // alongside everything else: (available RAM for runs) / INTERACTIVE_RUN_MEMORY_LIMIT_MB.
+    // Default assumes a small single-VPS deployment (see infrastructure/vps
+    // sizing notes) with ~1.5-2GB left for runs after MySQL x2 + the other
+    // Node services + OS/Docker overhead, at the default 512MB/run limit.
+    INTERACTIVE_RUN_MAX_CONCURRENT: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(3),
     PORT: z.coerce.number().int().positive().max(65_535).default(8084),
-  })
-  .superRefine((value, context) => {
-    if (value.NODE_ENV === "production")
-      context.addIssue({
-        code: "custom",
-        path: ["NODE_ENV"],
-        message:
-          "This local Docker-backed interactive run service is not a production container orchestrator.",
-      });
   })
   .parse(process.env);
 
@@ -66,5 +65,6 @@ const server = await buildInteractiveRunServer({
   ),
   runs,
   maxRuntimeSeconds: environment.INTERACTIVE_RUN_MAX_RUNTIME_SECONDS,
+  maxConcurrentRuns: environment.INTERACTIVE_RUN_MAX_CONCURRENT,
 });
 await server.listen({ host: "0.0.0.0", port: environment.PORT });

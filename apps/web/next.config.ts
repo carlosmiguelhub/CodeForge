@@ -1,3 +1,4 @@
+import { withSerwist } from "@serwist/turbopack";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -6,4 +7,4 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@sqweb/contracts"],
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

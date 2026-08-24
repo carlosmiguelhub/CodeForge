@@ -29,7 +29,10 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@serwist/turbopack": "^9.5.12",
     "@tailwindcss/postcss": "4.3.3",
+    "esbuild": "^0.28.2",
+    "serwist": "^9.5.12",
     "tailwindcss": "4.3.3"
   }
 }

@@ -1,10 +1,17 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   signOut: vi.fn().mockResolvedValue(undefined),
   replace: vi.fn(),
   refresh: vi.fn(),
+  standalone: false,
   account: undefined as { displayName: string; email: string } | undefined,
 }));
 
@@ -14,6 +21,10 @@ vi.mock("@/components/auth/auth-provider", () => ({
 
 vi.mock("@/components/theme/theme-provider", () => ({
   useTheme: () => ({ theme: "dark", toggleTheme: vi.fn() }),
+}));
+
+vi.mock("@/lib/use-standalone-display-mode", () => ({
+  useStandaloneDisplayMode: () => mocks.standalone,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -26,6 +37,7 @@ describe("AppShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.account = undefined;
+    mocks.standalone = false;
     window.localStorage.clear();
   });
   it("renders teacher navigation from the shared role definition", () => {
@@ -236,5 +248,48 @@ describe("AppShell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
     expect(screen.getByText("No notifications yet.")).toBeInTheDocument();
+  });
+
+  it("replaces the mobile menu trigger with PWA bottom navigation in standalone mode", () => {
+    mocks.standalone = true;
+    render(
+      <AppShell
+        role="student"
+        activeHref="/student/workspaces"
+        eyebrow="Student workspace"
+        pageTitle="SQL Workspace"
+      >
+        <p>Content</p>
+      </AppShell>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Open navigation" }),
+    ).not.toBeInTheDocument();
+
+    const bottomNavigation = screen.getByRole("navigation", {
+      name: "Primary",
+    });
+    expect(
+      within(bottomNavigation).getByRole("link", { name: "SQL Workspace" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      within(bottomNavigation).queryByRole("link", { name: "Saved Queries" }),
+    ).not.toBeInTheDocument();
+
+    const more = within(bottomNavigation).getByRole("button", {
+      name: "More navigation",
+    });
+    fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(more).toHaveClass("text-action-soft");
+    expect(
+      screen
+        .getByRole("navigation", { name: "Student navigation" })
+        .closest("aside"),
+    ).toHaveClass("translate-x-0");
+    expect(screen.getByRole("main")).toHaveClass(
+      "pb-[calc(4rem+env(safe-area-inset-bottom))]",
+    );
   });
 });

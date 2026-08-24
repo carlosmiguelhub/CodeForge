@@ -13,6 +13,10 @@ export type Theme = "dark" | "light";
 
 const STORAGE_KEY = "sqweb-theme";
 const THEME_CHANGE_EVENT = "sqweb-theme-change";
+const THEME_COLOR: Record<Theme, string> = {
+  dark: "#070708",
+  light: "#f4f5f7",
+};
 
 function getSnapshot(): Theme {
   return document.documentElement.getAttribute("data-theme") === "light"
@@ -36,6 +40,9 @@ function subscribe(callback: () => void): () => void {
 
 function applyTheme(theme: Theme) {
   document.documentElement.setAttribute("data-theme", theme);
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", THEME_COLOR[theme]);
   window.localStorage.setItem(STORAGE_KEY, theme);
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 }
