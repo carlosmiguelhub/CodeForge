@@ -34,7 +34,9 @@ describe("SectionList", () => {
       new Response(JSON.stringify([activeSection, archivedSection])),
     );
     render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("BSIT-3A")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("BSIT-3A")).toBeInTheDocument(),
+    );
     expect(screen.getByText("BSIT-2B")).toBeInTheDocument();
     expect(screen.getByText("Removed")).toBeInTheDocument();
   });
@@ -44,7 +46,9 @@ describe("SectionList", () => {
       new Response(JSON.stringify([{ ...activeSection, memberCount: 12 }])),
     );
     render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("BSIT-3A")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("BSIT-3A")).toBeInTheDocument(),
+    );
     expect(screen.getByText("12 students")).toBeInTheDocument();
   });
 
@@ -53,7 +57,9 @@ describe("SectionList", () => {
       new Response(JSON.stringify([{ ...activeSection, memberCount: 1 }])),
     );
     render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("BSIT-3A")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("BSIT-3A")).toBeInTheDocument(),
+    );
     expect(screen.getByText("1 student")).toBeInTheDocument();
   });
 
@@ -102,13 +108,19 @@ describe("SectionList", () => {
       new Response(JSON.stringify([activeSection])),
     );
     render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("BSIT-3A")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("BSIT-3A")).toBeInTheDocument(),
+    );
 
     mocks.authorizedFetch.mockResolvedValueOnce(
       new Response(null, { status: 204 }),
     );
     mocks.authorizedFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify([{ ...activeSection, archivedAt: "2026-08-20T00:00:00.000Z" }])),
+      new Response(
+        JSON.stringify([
+          { ...activeSection, archivedAt: "2026-08-20T00:00:00.000Z" },
+        ]),
+      ),
     );
     fireEvent.click(screen.getByRole("button", { name: /Remove/ }));
 
@@ -127,7 +139,9 @@ describe("SectionList", () => {
       new Response(JSON.stringify([archivedSection])),
     );
     render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("Removed")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Removed")).toBeInTheDocument(),
+    );
 
     mocks.authorizedFetch.mockResolvedValueOnce(
       new Response(null, { status: 204 }),
@@ -155,7 +169,9 @@ describe("SectionList", () => {
       new Response(JSON.stringify([activeSection])),
     );
     render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("BSIT-3A")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("BSIT-3A")).toBeInTheDocument(),
+    );
 
     mocks.authorizedFetch.mockResolvedValueOnce(
       new Response(
@@ -184,7 +200,9 @@ describe("SectionList", () => {
       new Response(JSON.stringify([activeSection])),
     );
     render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("BSIT-3A")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("BSIT-3A")).toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /Settings/ }));
 
@@ -198,7 +216,9 @@ describe("SectionList", () => {
       new Response(JSON.stringify([activeSection])),
     );
     const { container } = render(<SectionList />);
-    await waitFor(() => expect(screen.getByText("BSIT-3A")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("BSIT-3A")).toBeInTheDocument(),
+    );
     const results = await axe.run(container, {
       rules: { "color-contrast": { enabled: false } },
     });

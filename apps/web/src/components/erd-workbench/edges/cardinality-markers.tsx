@@ -123,6 +123,5 @@ export const notationGroups: readonly NotationGroup[] = [
   },
 ];
 
-export const notationOptions: readonly NotationOption[] = notationGroups.flatMap(
-  (group) => group.options,
-);
+export const notationOptions: readonly NotationOption[] =
+  notationGroups.flatMap((group) => group.options);

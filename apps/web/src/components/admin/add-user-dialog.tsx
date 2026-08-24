@@ -1,6 +1,10 @@
 "use client";
 
-import { accountProfileSchema, type AccountProfile, type Role } from "@sqweb/contracts";
+import {
+  accountProfileSchema,
+  type AccountProfile,
+  type Role,
+} from "@sqweb/contracts";
 import { UserPlus, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
@@ -108,10 +112,13 @@ export function AddUserDialog({
           </button>
         </div>
 
-        <form onSubmit={(event) => void submit(event)} className="space-y-4 p-5">
+        <form
+          onSubmit={(event) => void submit(event)}
+          className="space-y-4 p-5"
+        >
           <p className="text-ink-muted text-xs leading-5">
-            The account is active immediately and skips email verification —
-            the new user sets their own password via an emailed link.
+            The account is active immediately and skips email verification — the
+            new user sets their own password via an emailed link.
           </p>
 
           <label className="text-ink-muted block text-[11px]">

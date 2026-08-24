@@ -47,9 +47,7 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function ThemeProvider({
-  children,
-}: Readonly<{ children: ReactNode }>) {
+export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const toggleTheme = useCallback(() => {

@@ -1,5 +1,11 @@
 import axe from "axe-core";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -58,7 +64,10 @@ const section = {
   lockedWorkspaces: [],
 };
 
-function mockUsersAndSections(items: unknown[], sections: unknown[] = [section]) {
+function mockUsersAndSections(
+  items: unknown[],
+  sections: unknown[] = [section],
+) {
   mocks.authorizedFetch.mockImplementation(async (path: string) => {
     if (path.startsWith("/v1/admin/sections"))
       return new Response(JSON.stringify(sections));
@@ -89,7 +98,11 @@ describe("UserList", () => {
 
     mocks.authorizedFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ ...pendingTeacher, status: "active", roles: ["teacher"] }),
+        JSON.stringify({
+          ...pendingTeacher,
+          status: "active",
+          roles: ["teacher"],
+        }),
       ),
     );
     fireEvent.click(screen.getByRole("button", { name: /Approve/ }));
@@ -123,7 +136,9 @@ describe("UserList", () => {
     mocks.authorizedFetch.mockResolvedValue(listResponse([]));
     render(<UserList />);
     await waitFor(() =>
-      expect(screen.getByText("No users match these filters.")).toBeInTheDocument(),
+      expect(
+        screen.getByText("No users match these filters."),
+      ).toBeInTheDocument(),
     );
     fireEvent.click(screen.getByRole("button", { name: "Add user" }));
     expect(await screen.findByTestId("add-user-dialog")).toBeInTheDocument();

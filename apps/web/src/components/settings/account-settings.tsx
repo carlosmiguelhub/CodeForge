@@ -24,7 +24,8 @@ export function AccountSettings() {
   if (!account) return null;
 
   const trimmedName = displayName.trim();
-  const nameChanged = trimmedName.length > 0 && trimmedName !== account.displayName;
+  const nameChanged =
+    trimmedName.length > 0 && trimmedName !== account.displayName;
 
   async function saveDisplayName(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

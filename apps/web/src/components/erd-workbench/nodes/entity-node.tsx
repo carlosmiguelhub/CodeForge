@@ -137,7 +137,9 @@ function AttributeRow({
         <KeyRound
           aria-hidden="true"
           size={11}
-          className={attribute.isPrimaryKey ? "text-warning" : "text-ink-disabled"}
+          className={
+            attribute.isPrimaryKey ? "text-warning" : "text-ink-disabled"
+          }
         />
       </button>
 

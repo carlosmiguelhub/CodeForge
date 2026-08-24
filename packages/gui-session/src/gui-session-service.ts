@@ -14,9 +14,7 @@ function resolveMainClassName(
       "Mark one file as the main class before running.",
       400,
     );
-  const mainFile = content.files.find(
-    (file) => file.id === content.mainFileId,
-  );
+  const mainFile = content.files.find((file) => file.id === content.mainFileId);
   if (!mainFile)
     throw new AuthorizationError(
       "VALIDATION_FAILED",
@@ -97,7 +95,11 @@ export class GuiSessionService {
       identity,
       ["student", "teacher", "administrator"],
     );
-    const record = await this.requireOwnedSession(sessionId, actor.id, actor.roles);
+    const record = await this.requireOwnedSession(
+      sessionId,
+      actor.id,
+      actor.roles,
+    );
     return {
       id: record.id,
       state: record.state,

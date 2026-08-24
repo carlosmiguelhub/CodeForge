@@ -19,7 +19,11 @@ const administrator: AccountProfile = {
   authorizationVersion: 1,
 };
 
-const identity = { uid: "admin", email: administrator.email, emailVerified: true };
+const identity = {
+  uid: "admin",
+  email: administrator.email,
+  emailVerified: true,
+};
 
 const section: Section = {
   id: "00000000-0000-4000-8000-000000000020",
@@ -256,9 +260,9 @@ describe("SectionService", () => {
       repository.findById = vi
         .fn()
         .mockResolvedValue({ ...section, lockedWorkspaces: ["erd-editor"] });
-      await expect(service.getWorkspaceAccess(studentIdentity)).resolves.toEqual(
-        { lockedWorkspaces: ["erd-editor"] },
-      );
+      await expect(
+        service.getWorkspaceAccess(studentIdentity),
+      ).resolves.toEqual({ lockedWorkspaces: ["erd-editor"] });
     });
 
     it("returns an empty list for a teacher", async () => {
@@ -268,9 +272,9 @@ describe("SectionService", () => {
       repository.findById = vi
         .fn()
         .mockResolvedValue({ ...section, lockedWorkspaces: ["erd-editor"] });
-      await expect(service.getWorkspaceAccess(teacherIdentity)).resolves.toEqual(
-        { lockedWorkspaces: [] },
-      );
+      await expect(
+        service.getWorkspaceAccess(teacherIdentity),
+      ).resolves.toEqual({ lockedWorkspaces: [] });
       expect(repository.findById).not.toHaveBeenCalled();
     });
   });

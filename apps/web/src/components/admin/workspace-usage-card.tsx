@@ -106,8 +106,16 @@ function Sparkline({
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-action)" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="var(--color-action)" stopOpacity="0" />
+            <stop
+              offset="0%"
+              stopColor="var(--color-action)"
+              stopOpacity="0.18"
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--color-action)"
+              stopOpacity="0"
+            />
           </linearGradient>
         </defs>
         <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
@@ -152,7 +160,9 @@ function Sparkline({
           }}
         >
           <span className="font-semibold">{hovered.count}</span>{" "}
-          <span className="text-ink-muted">{formatShortDate(hovered.date)}</span>
+          <span className="text-ink-muted">
+            {formatShortDate(hovered.date)}
+          </span>
         </div>
       ) : null}
     </div>

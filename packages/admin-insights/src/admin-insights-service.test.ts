@@ -148,7 +148,11 @@ describe("AdminInsightsService", () => {
   it("sums usersByStatus into totalUsers for the dashboard", async () => {
     const stats = await service.getDashboardStats(identity);
     expect(stats.totalUsers).toBe(7);
-    expect(stats.usersByRole).toEqual({ student: 4, teacher: 2, administrator: 1 });
+    expect(stats.usersByRole).toEqual({
+      student: 4,
+      teacher: 2,
+      administrator: 1,
+    });
   });
 
   it("includes per-workspace usage stats in the dashboard", async () => {

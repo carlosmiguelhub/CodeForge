@@ -43,10 +43,7 @@ export class GuiWorkspaceService {
     );
   }
 
-  async save(
-    identity: VerifiedIdentity,
-    request: JavaGuiWorkspaceSaveRequest,
-  ) {
+  async save(identity: VerifiedIdentity, request: JavaGuiWorkspaceSaveRequest) {
     const actor = await this.dependencies.identity.requireActiveAccount(
       identity,
       ["student", "teacher"],

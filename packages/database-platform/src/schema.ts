@@ -473,20 +473,23 @@ export const savedQueries = mysqlTable(
   ],
 );
 
-export const guiSessionPoolInstances = mysqlTable("gui_session_pool_instances", {
-  id: char("id", { length: 36 }).primaryKey(),
-  environment: varchar("environment", { length: 32 }).notNull(),
-  region: varchar("region", { length: 64 }).notNull(),
-  serviceRef: varchar("service_ref", { length: 255 }).notNull(),
-  state: mysqlEnum("state", ["active", "draining", "offline"])
-    .notNull()
-    .default("active"),
-  sessionCount: int("session_count").notNull().default(0),
-  capacity: json("capacity_json"),
-  createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
-    .notNull()
-    .defaultNow(),
-});
+export const guiSessionPoolInstances = mysqlTable(
+  "gui_session_pool_instances",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    environment: varchar("environment", { length: 32 }).notNull(),
+    region: varchar("region", { length: 64 }).notNull(),
+    serviceRef: varchar("service_ref", { length: 255 }).notNull(),
+    state: mysqlEnum("state", ["active", "draining", "offline"])
+      .notNull()
+      .default("active"),
+    sessionCount: int("session_count").notNull().default(0),
+    capacity: json("capacity_json"),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+  },
+);
 
 export const javaGuiWorkspaces = mysqlTable(
   "java_gui_workspaces",

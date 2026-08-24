@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import { guiSessionStateSchema } from "./gui-session";
-import { accountProfileSchema, accountStatusSchema, roleSchema } from "./identity";
+import {
+  accountProfileSchema,
+  accountStatusSchema,
+  roleSchema,
+} from "./identity";
 import { workspaceStateSchema } from "./workspace";
 import { workspaceKindSchema } from "./workspace-kind";
 

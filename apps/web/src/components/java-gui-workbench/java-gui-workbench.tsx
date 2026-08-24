@@ -28,7 +28,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { guiSessionSocketUrl } from "@/lib/gui-execution-url";
 import { DEFAULT_POLL_INTERVAL_MS, usePolling } from "@/lib/use-polling";
 import { randomId } from "@/lib/random-id";
-import { CodeEditor, type CodeEditorController } from "../code-workbench/code-editor";
+import {
+  CodeEditor,
+  type CodeEditorController,
+} from "../code-workbench/code-editor";
 import { GuiViewport } from "./gui-viewport";
 
 const ACTIVE_SESSION_STATES: readonly GuiSession["state"][] = [
@@ -72,9 +75,7 @@ export function JavaGuiWorkbench() {
   const [starting, setStarting] = useState(false);
   const [panelTab, setPanelTab] = useState<"console" | "viewport">("console");
   const [consoleText, setConsoleText] = useState("");
-  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(
-    null,
-  );
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const consoleSocketRef = useRef<WebSocket | null>(null);
 
   // Fetch the caller's one Java GUI workspace on mount — the server
@@ -125,7 +126,14 @@ export function JavaGuiWorkbench() {
       window.clearTimeout(statusTimer);
       window.clearTimeout(saveTimer);
     };
-  }, [authorizedFetch, loadState, files, openFileIds, activeFileId, mainFileId]);
+  }, [
+    authorizedFetch,
+    loadState,
+    files,
+    openFileIds,
+    activeFileId,
+    mainFileId,
+  ]);
 
   const closeConsoleSocket = () => {
     consoleSocketRef.current?.close();
@@ -137,7 +145,9 @@ export function JavaGuiWorkbench() {
   // 4, step 3.
   const openConsoleSocket = (sessionId: string, grant: string) => {
     closeConsoleSocket();
-    const socket = new WebSocket(guiSessionSocketUrl(sessionId, "console", grant));
+    const socket = new WebSocket(
+      guiSessionSocketUrl(sessionId, "console", grant),
+    );
     socket.onmessage = (event) => {
       setConsoleText((current) => current + String(event.data));
     };
@@ -175,7 +185,9 @@ export function JavaGuiWorkbench() {
     }
     const endsAtMs = new Date(session.endsAt).getTime();
     const tick = () =>
-      setRemainingSeconds(Math.max(0, Math.round((endsAtMs - Date.now()) / 1000)));
+      setRemainingSeconds(
+        Math.max(0, Math.round((endsAtMs - Date.now()) / 1000)),
+      );
     const timer = window.setTimeout(tick, 0);
     const id = window.setInterval(tick, 1000);
     return () => {
@@ -189,7 +201,8 @@ export function JavaGuiWorkbench() {
     .map((id) => files.find((file) => file.id === id))
     .filter((file): file is JavaGuiFile => file !== undefined);
   const sessionBusy =
-    starting || (session !== null && ACTIVE_SESSION_STATES.includes(session.state));
+    starting ||
+    (session !== null && ACTIVE_SESSION_STATES.includes(session.state));
 
   function updateActiveSource(sourceCode: string) {
     if (!activeFileId) return;
@@ -214,7 +227,9 @@ export function JavaGuiWorkbench() {
   }
 
   function openFile(id: string) {
-    setOpenFileIds((current) => (current.includes(id) ? current : [...current, id]));
+    setOpenFileIds((current) =>
+      current.includes(id) ? current : [...current, id],
+    );
     setActiveFileId(id);
   }
 
@@ -413,7 +428,9 @@ export function JavaGuiWorkbench() {
                     }
                     aria-pressed={isMain}
                     className={`grid size-7 shrink-0 place-items-center ${
-                      isMain ? "text-warning" : "text-ink-disabled hover:text-ink-muted"
+                      isMain
+                        ? "text-warning"
+                        : "text-ink-disabled hover:text-ink-muted"
                     }`}
                   >
                     <Star
@@ -467,7 +484,10 @@ export function JavaGuiWorkbench() {
           </div>
         </aside>
 
-        <div className="grid min-w-0 flex-1" style={{ gridTemplateRows: "minmax(220px, 1fr) 260px" }}>
+        <div
+          className="grid min-w-0 flex-1"
+          style={{ gridTemplateRows: "minmax(220px, 1fr) 260px" }}
+        >
           <div className="min-h-0 overflow-hidden">
             <div className="border-divider bg-panel flex h-10 items-end overflow-x-auto border-b">
               {openFiles.map((file) => (
@@ -530,7 +550,9 @@ export function JavaGuiWorkbench() {
               <button
                 onClick={() => setPanelTab("console")}
                 className={`${
-                  panelTab === "console" ? "text-ink-primary bg-elevated" : "text-ink-muted"
+                  panelTab === "console"
+                    ? "text-ink-primary bg-elevated"
+                    : "text-ink-muted"
                 } rounded-control flex min-h-8 items-center gap-2 px-3 text-xs`}
               >
                 <Terminal aria-hidden="true" size={13} /> Console
@@ -538,7 +560,9 @@ export function JavaGuiWorkbench() {
               <button
                 onClick={() => setPanelTab("viewport")}
                 className={`${
-                  panelTab === "viewport" ? "text-ink-primary bg-elevated" : "text-ink-muted"
+                  panelTab === "viewport"
+                    ? "text-ink-primary bg-elevated"
+                    : "text-ink-muted"
                 } rounded-control flex min-h-8 items-center gap-2 px-3 text-xs`}
               >
                 <MonitorPlay aria-hidden="true" size={13} /> GUI Viewport
@@ -553,7 +577,8 @@ export function JavaGuiWorkbench() {
             <div className="h-[calc(100%-2.5rem)] overflow-auto">
               {panelTab === "console" ? (
                 <pre className="text-ink-primary h-full w-full overflow-auto p-3 font-mono text-xs whitespace-pre-wrap">
-                  {consoleText || "Click Run to compile and start your program."}
+                  {consoleText ||
+                    "Click Run to compile and start your program."}
                 </pre>
               ) : (
                 <GuiViewport url={vncUrl} />

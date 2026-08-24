@@ -224,7 +224,8 @@ export class MySqlAccountRepository implements AccountRepository {
     ]);
 
     const ids = pageRows.map((row) => row.id);
-    if (ids.length === 0) return { items: [], total: Number(totalRow?.count ?? 0) };
+    if (ids.length === 0)
+      return { items: [], total: Number(totalRow?.count ?? 0) };
 
     const rows = await this.database
       .select({ user: users, membership: institutionMemberships })
@@ -382,7 +383,9 @@ export class MySqlAccountRepository implements AccountRepository {
       await transaction
         .delete(savedQueries)
         .where(eq(savedQueries.ownerId, userId));
-      await transaction.delete(workspaces).where(eq(workspaces.ownerId, userId));
+      await transaction
+        .delete(workspaces)
+        .where(eq(workspaces.ownerId, userId));
 
       await transaction
         .delete(codeExecutions)
@@ -390,7 +393,9 @@ export class MySqlAccountRepository implements AccountRepository {
       await transaction
         .delete(codeWorkspaces)
         .where(eq(codeWorkspaces.ownerId, userId));
-      await transaction.delete(erdDiagrams).where(eq(erdDiagrams.ownerId, userId));
+      await transaction
+        .delete(erdDiagrams)
+        .where(eq(erdDiagrams.ownerId, userId));
 
       const ownedTemplates = await transaction
         .select({ id: workspaceTemplates.id })
@@ -465,7 +470,8 @@ export class MySqlAccountRepository implements AccountRepository {
       suspended: 0,
       deactivated: 0,
     };
-    for (const row of rows) result[row.status as AccountStatus] = Number(row.count);
+    for (const row of rows)
+      result[row.status as AccountStatus] = Number(row.count);
     return result;
   }
 

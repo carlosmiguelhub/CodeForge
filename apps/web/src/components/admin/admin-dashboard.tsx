@@ -1,6 +1,9 @@
 "use client";
 
-import { adminDashboardStatsSchema, type AdminDashboardStats } from "@sqweb/contracts";
+import {
+  adminDashboardStatsSchema,
+  type AdminDashboardStats,
+} from "@sqweb/contracts";
 import { ClipboardList, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -73,7 +76,9 @@ export function AdminDashboard() {
           Workspace usage
         </h3>
         <p className="text-ink-muted mt-0.5 text-xs">
-          Total actions and the last {stats.workspaceUsage[0]?.dailyCounts.length ?? 14} days of activity, per workspace
+          Total actions and the last{" "}
+          {stats.workspaceUsage[0]?.dailyCounts.length ?? 14} days of activity,
+          per workspace
         </p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.workspaceUsage.map((stat) => (
@@ -102,4 +107,3 @@ function StatTile({
     </div>
   );
 }
-

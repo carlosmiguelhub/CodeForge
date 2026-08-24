@@ -1,7 +1,14 @@
 "use client";
 
 import { sectionSchema, type Section } from "@sqweb/contracts";
-import { Archive, Layers, Plus, RotateCcw, Settings, Users } from "lucide-react";
+import {
+  Archive,
+  Layers,
+  Plus,
+  RotateCcw,
+  Settings,
+  Users,
+} from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -59,8 +66,7 @@ export function SectionList() {
         { method: "POST", body: JSON.stringify({ name: name.trim() }) },
         true,
       );
-      if (!response.ok)
-        throw new Error("The section could not be created.");
+      if (!response.ok) throw new Error("The section could not be created.");
       setName("");
       await load();
     } catch {
@@ -108,8 +114,7 @@ export function SectionList() {
         { method: "POST" },
         true,
       );
-      if (!response.ok)
-        throw new Error("The section could not be restored.");
+      if (!response.ok) throw new Error("The section could not be restored.");
       await load();
     } catch (restoreError) {
       setError(
@@ -157,7 +162,11 @@ export function SectionList() {
             disabled={creating || !name.trim()}
             className="rounded-control bg-action hover:bg-action/90 flex min-h-9 items-center gap-2 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {creating ? <Spinner size={13} /> : <Plus aria-hidden="true" size={13} />}
+            {creating ? (
+              <Spinner size={13} />
+            ) : (
+              <Plus aria-hidden="true" size={13} />
+            )}
             Add section
           </button>
         </form>

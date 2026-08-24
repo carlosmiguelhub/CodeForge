@@ -40,7 +40,9 @@ describe("AddUserDialog", () => {
     mocks.authorizedFetch.mockResolvedValue(
       new Response(JSON.stringify(createdAccount), { status: 201 }),
     );
-    render(<AddUserDialog onClose={mocks.onClose} onCreated={mocks.onCreated} />);
+    render(
+      <AddUserDialog onClose={mocks.onClose} onCreated={mocks.onCreated} />,
+    );
 
     fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "new@example.edu" },
@@ -64,8 +66,12 @@ describe("AddUserDialog", () => {
   });
 
   it("surfaces a clear message when the email is already registered", async () => {
-    mocks.authorizedFetch.mockResolvedValue(new Response("{}", { status: 409 }));
-    render(<AddUserDialog onClose={mocks.onClose} onCreated={mocks.onCreated} />);
+    mocks.authorizedFetch.mockResolvedValue(
+      new Response("{}", { status: 409 }),
+    );
+    render(
+      <AddUserDialog onClose={mocks.onClose} onCreated={mocks.onCreated} />,
+    );
 
     fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "dup@example.edu" },

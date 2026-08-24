@@ -56,15 +56,19 @@ function setup(profile: AccountProfile | null = account()) {
           status: "active",
         }),
       ),
-      assignRole: vi.fn().mockImplementation(async ({ role }) =>
-        account({ roles: [...account().roles, role] }),
-      ),
+      assignRole: vi
+        .fn()
+        .mockImplementation(async ({ role }) =>
+          account({ roles: [...account().roles, role] }),
+        ),
       assignSection: vi
         .fn()
         .mockImplementation(async (_firebaseUid, _institutionId, sectionId) =>
           account({ sectionId }),
         ),
-      removeRole: vi.fn().mockImplementation(async () => account({ roles: [] })),
+      removeRole: vi
+        .fn()
+        .mockImplementation(async () => account({ roles: [] })),
       deleteAccount: vi.fn().mockResolvedValue(undefined),
       countByRole: vi
         .fn()
@@ -95,7 +99,9 @@ function setup(profile: AccountProfile | null = account()) {
     claims: { writeClaims: vi.fn().mockResolvedValue(undefined) },
     audit: { record: vi.fn().mockResolvedValue(undefined) },
     provisioner: {
-      createUser: vi.fn().mockResolvedValue({ firebaseUid: "new-firebase-uid" }),
+      createUser: vi
+        .fn()
+        .mockResolvedValue({ firebaseUid: "new-firebase-uid" }),
       deleteUser: vi.fn().mockResolvedValue(undefined),
       setPassword: vi.fn().mockResolvedValue(undefined),
       revokeSessions: vi.fn().mockResolvedValue(undefined),
@@ -309,7 +315,11 @@ describe("IdentityService", () => {
       account({ roles: ["administrator"] }),
     );
     const sectionId = "00000000-0000-4000-8000-000000000030";
-    await service.assignSection(administratorIdentity, "firebase-user", sectionId);
+    await service.assignSection(
+      administratorIdentity,
+      "firebase-user",
+      sectionId,
+    );
     expect(dependencies.accounts.assignSection).toHaveBeenCalledWith(
       "firebase-user",
       institutionId,
@@ -368,7 +378,11 @@ describe("IdentityService", () => {
       account({ roles: ["administrator"], id: "target-id" }),
     );
     await expect(
-      service.removeRole(administratorIdentity, "firebase-user", "administrator"),
+      service.removeRole(
+        administratorIdentity,
+        "firebase-user",
+        "administrator",
+      ),
     ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
@@ -462,7 +476,11 @@ describe("IdentityService", () => {
           : null,
     );
     await expect(
-      service.setAccountPassword(administratorIdentity, "ghost-uid", "New-Passw0rd!"),
+      service.setAccountPassword(
+        administratorIdentity,
+        "ghost-uid",
+        "New-Passw0rd!",
+      ),
     ).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
     expect(dependencies.provisioner.setPassword).not.toHaveBeenCalled();
   });
@@ -470,7 +488,11 @@ describe("IdentityService", () => {
   it("requires an administrator to set a password directly", async () => {
     const { service } = setup();
     await expect(
-      service.setAccountPassword(administratorIdentity, "target-uid", "New-Passw0rd!"),
+      service.setAccountPassword(
+        administratorIdentity,
+        "target-uid",
+        "New-Passw0rd!",
+      ),
     ).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
   });
 

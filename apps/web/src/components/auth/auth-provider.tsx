@@ -206,23 +206,24 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   // Public — no bearer token — so it can be checked even when the account's
   // own token was already revoked (the bulk sign-out a maintenance toggle
   // triggers) or before any sign-in has happened at all.
-  const checkSystemStatus = useCallback(async (): Promise<SystemStatus | null> => {
-    if (!apiBaseUrl || !services) return null;
-    try {
-      const headers = new Headers();
-      headers.set(
-        "X-Firebase-AppCheck",
-        await resolveAppCheckHeader(services.appCheck),
-      );
-      const response = await fetch(`${apiBaseUrl}/v1/system/status`, {
-        headers,
-      });
-      if (!response.ok) return null;
-      return systemStatusSchema.parse(await response.json());
-    } catch {
-      return null;
-    }
-  }, [services]);
+  const checkSystemStatus =
+    useCallback(async (): Promise<SystemStatus | null> => {
+      if (!apiBaseUrl || !services) return null;
+      try {
+        const headers = new Headers();
+        headers.set(
+          "X-Firebase-AppCheck",
+          await resolveAppCheckHeader(services.appCheck),
+        );
+        const response = await fetch(`${apiBaseUrl}/v1/system/status`, {
+          headers,
+        });
+        if (!response.ok) return null;
+        return systemStatusSchema.parse(await response.json());
+      } catch {
+        return null;
+      }
+    }, [services]);
 
   const idleLogoutMessageRef = useRef<string | null>(null);
 

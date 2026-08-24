@@ -83,7 +83,9 @@ describe("SystemSettingsView", () => {
         true,
       ),
     );
-    expect(await screen.findByText(/Cleared 19 activity records/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Cleared 19 activity records/),
+    ).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByText("SQL runs cleared")).toBeInTheDocument();
   });

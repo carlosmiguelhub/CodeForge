@@ -41,9 +41,7 @@ describe("SectionWorkspaceLockDialog", () => {
     expect(screen.getByText("Saved Queries")).toBeInTheDocument();
     expect(screen.getByText("Java GUI Workspace")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Locked" })).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("button", { name: "Unlocked" }),
-    ).toHaveLength(4);
+    expect(screen.getAllByRole("button", { name: "Unlocked" })).toHaveLength(4);
   });
 
   it("toggles a workspace lock and saves via PATCH", async () => {
@@ -64,9 +62,7 @@ describe("SectionWorkspaceLockDialog", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Unlocked" })[0]!,
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Unlocked" })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>

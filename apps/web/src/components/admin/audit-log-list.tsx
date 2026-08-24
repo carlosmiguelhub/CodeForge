@@ -1,6 +1,9 @@
 "use client";
 
-import { auditEventListResponseSchema, type AuditEventRecord } from "@sqweb/contracts";
+import {
+  auditEventListResponseSchema,
+  type AuditEventRecord,
+} from "@sqweb/contracts";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -85,7 +88,8 @@ export function AuditLogList() {
 
   function onActionChange(value: string) {
     setAction(value);
-    if (searchTimeout.current !== null) window.clearTimeout(searchTimeout.current);
+    if (searchTimeout.current !== null)
+      window.clearTimeout(searchTimeout.current);
     searchTimeout.current = window.setTimeout(() => {
       void load(1);
     }, 300);
@@ -155,7 +159,7 @@ export function AuditLogList() {
                   <td className="text-ink-primary px-4 py-2.5 font-mono text-xs">
                     {event.action}
                   </td>
-                  <td className="text-ink-muted px-4 py-2.5 truncate font-mono text-xs">
+                  <td className="text-ink-muted truncate px-4 py-2.5 font-mono text-xs">
                     {event.targetId}
                   </td>
                   <td

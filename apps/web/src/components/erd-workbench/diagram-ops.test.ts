@@ -15,7 +15,12 @@ import {
   togglePrimaryKey,
   updateAttributeRow,
 } from "./diagram-ops";
-import type { EntityNodeType, ErdEdge, ShapeNodeType, TextNodeType } from "./types";
+import type {
+  EntityNodeType,
+  ErdEdge,
+  ShapeNodeType,
+  TextNodeType,
+} from "./types";
 
 describe("snapToGrid", () => {
   it("rounds to the nearest grid line in both axes", () => {
@@ -105,12 +110,18 @@ describe("entity attribute operations", () => {
 
 describe("renameNode", () => {
   it("renames an entity's name field", () => {
-    const entity = createNodeAtPosition("entity", { x: 0, y: 0 }) as EntityNodeType;
+    const entity = createNodeAtPosition("entity", {
+      x: 0,
+      y: 0,
+    }) as EntityNodeType;
     expect(renameNode(entity, "students").data.name).toBe("students");
   });
 
   it("renames a shape's label field", () => {
-    const shape = createNodeAtPosition("rectangle", { x: 0, y: 0 }) as ShapeNodeType;
+    const shape = createNodeAtPosition("rectangle", {
+      x: 0,
+      y: 0,
+    }) as ShapeNodeType;
     expect(renameNode(shape, "Custom").data.label).toBe("Custom");
   });
 

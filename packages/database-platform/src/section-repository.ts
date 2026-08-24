@@ -40,7 +40,10 @@ export class MySqlSectionRepository {
 
   async listAll(institutionId: string) {
     const rows = await this.database
-      .select({ section: sections, memberCount: sql<number>`COUNT(${users.id})` })
+      .select({
+        section: sections,
+        memberCount: sql<number>`COUNT(${users.id})`,
+      })
       .from(sections)
       .leftJoin(users, eq(users.sectionId, sections.id))
       .where(eq(sections.institutionId, institutionId))
@@ -78,14 +81,18 @@ export class MySqlSectionRepository {
     await this.database
       .update(sections)
       .set({ archivedAt: new Date() })
-      .where(and(eq(sections.id, id), eq(sections.institutionId, institutionId)));
+      .where(
+        and(eq(sections.id, id), eq(sections.institutionId, institutionId)),
+      );
   }
 
   async restore(id: string, institutionId: string) {
     await this.database
       .update(sections)
       .set({ archivedAt: null })
-      .where(and(eq(sections.id, id), eq(sections.institutionId, institutionId)));
+      .where(
+        and(eq(sections.id, id), eq(sections.institutionId, institutionId)),
+      );
   }
 
   async setLockedWorkspaces(
@@ -96,7 +103,9 @@ export class MySqlSectionRepository {
     await this.database
       .update(sections)
       .set({ lockedWorkspaces: [...lockedWorkspaces] })
-      .where(and(eq(sections.id, id), eq(sections.institutionId, institutionId)));
+      .where(
+        and(eq(sections.id, id), eq(sections.institutionId, institutionId)),
+      );
     const [updated] = await this.database
       .select()
       .from(sections)
@@ -109,7 +118,9 @@ export class MySqlSectionRepository {
     const [row] = await this.database
       .select()
       .from(sections)
-      .where(and(eq(sections.id, id), eq(sections.institutionId, institutionId)));
+      .where(
+        and(eq(sections.id, id), eq(sections.institutionId, institutionId)),
+      );
     return row ? toSection(row) : null;
   }
 }

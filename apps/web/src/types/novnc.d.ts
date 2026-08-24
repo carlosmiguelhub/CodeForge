@@ -20,7 +20,11 @@ declare module "@novnc/novnc" {
   }
 
   export default class RFB extends EventTarget {
-    constructor(target: HTMLElement, urlOrChannel: string, options?: RFBOptions);
+    constructor(
+      target: HTMLElement,
+      urlOrChannel: string,
+      options?: RFBOptions,
+    );
 
     viewOnly: boolean;
     clipViewport: boolean;

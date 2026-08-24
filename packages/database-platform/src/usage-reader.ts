@@ -286,7 +286,9 @@ export class MySqlUsageReader {
     ]);
 
     const dateRange = lastNDates(USAGE_WINDOW_DAYS);
-    const toDailyCounts = (rows: readonly { day: unknown; count: number }[]) => {
+    const toDailyCounts = (
+      rows: readonly { day: unknown; count: number }[],
+    ) => {
       const byDay = new Map(
         rows.map((row) => [toDateKey(row.day), Number(row.count)]),
       );
@@ -478,14 +480,12 @@ export class MySqlUsageReader {
           ),
         );
       if (sqlRows.length > 0) {
-        await transaction
-          .delete(queryExecutions)
-          .where(
-            inArray(
-              queryExecutions.id,
-              sqlRows.map((row) => row.id),
-            ),
-          );
+        await transaction.delete(queryExecutions).where(
+          inArray(
+            queryExecutions.id,
+            sqlRows.map((row) => row.id),
+          ),
+        );
       }
 
       const codeRows = await transaction
@@ -498,14 +498,12 @@ export class MySqlUsageReader {
           ),
         );
       if (codeRows.length > 0) {
-        await transaction
-          .delete(codeExecutions)
-          .where(
-            inArray(
-              codeExecutions.id,
-              codeRows.map((row) => row.id),
-            ),
-          );
+        await transaction.delete(codeExecutions).where(
+          inArray(
+            codeExecutions.id,
+            codeRows.map((row) => row.id),
+          ),
+        );
       }
 
       const guiRows = await transaction

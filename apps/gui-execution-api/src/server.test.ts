@@ -66,12 +66,16 @@ function accessReader(
 
 async function startServer(dependencies: {
   accessReader: GuiSessionAccessReader;
-  logs?: { streamLogs: (containerRef: string) => Promise<NodeJS.ReadableStream> };
+  logs?: {
+    streamLogs: (containerRef: string) => Promise<NodeJS.ReadableStream>;
+  };
 }) {
   const server = await buildGuiExecutionServer({
     grantSigner: signer,
     accessReader: dependencies.accessReader,
-    logs: dependencies.logs ?? { streamLogs: vi.fn().mockResolvedValue(Readable.from([])) },
+    logs: dependencies.logs ?? {
+      streamLogs: vi.fn().mockResolvedValue(Readable.from([])),
+    },
     logger: false,
   });
   const address = await server.listen({ host: "127.0.0.1", port: 0 });
@@ -80,9 +84,13 @@ async function startServer(dependencies: {
 
 describe("gui-execution-api WebSocket routes", () => {
   it("rejects a connection with no grant", async () => {
-    const { server, address } = await startServer({ accessReader: accessReader() });
+    const { server, address } = await startServer({
+      accessReader: accessReader(),
+    });
     try {
-      const socket = new WebSocket(`${address.replace("http", "ws")}/v1/gui-sessions/${sessionId}/vnc`);
+      const socket = new WebSocket(
+        `${address.replace("http", "ws")}/v1/gui-sessions/${sessionId}/vnc`,
+      );
       const code = await new Promise<number>((resolve) => {
         socket.once("close", (closeCode) => resolve(closeCode));
       });
@@ -93,9 +101,15 @@ describe("gui-execution-api WebSocket routes", () => {
   });
 
   it("rejects a grant minted for a different session", async () => {
-    const { server, address } = await startServer({ accessReader: accessReader() });
+    const { server, address } = await startServer({
+      accessReader: accessReader(),
+    });
     try {
-      const { token } = signer.issueGuiSession(account, "00000000-0000-4000-8000-000000000099", 60);
+      const { token } = signer.issueGuiSession(
+        account,
+        "00000000-0000-4000-8000-000000000099",
+        60,
+      );
       const socket = new WebSocket(
         `${address.replace("http", "ws")}/v1/gui-sessions/${sessionId}/vnc?token=${token}`,
       );
@@ -111,7 +125,9 @@ describe("gui-execution-api WebSocket routes", () => {
   it("relays bytes both ways between the browser and the container's websockify port", async () => {
     const upstream = await startFakeWebsockify();
     const reader = accessReader({
-      findAllocation: vi.fn().mockResolvedValue({ ...allocation, websockifyPort: upstream.port }),
+      findAllocation: vi
+        .fn()
+        .mockResolvedValue({ ...allocation, websockifyPort: upstream.port }),
     });
     const { server, address } = await startServer({ accessReader: reader });
     try {
@@ -129,7 +145,9 @@ describe("gui-execution-api WebSocket routes", () => {
       expect(upstream.received[0]?.toString("utf8")).toBe("hello vnc");
 
       socket.close();
-      await vi.waitFor(() => expect(reader.markStopped).toHaveBeenCalledWith(sessionId));
+      await vi.waitFor(() =>
+        expect(reader.markStopped).toHaveBeenCalledWith(sessionId),
+      );
     } finally {
       await server.close();
     }
@@ -138,7 +156,10 @@ describe("gui-execution-api WebSocket routes", () => {
   it("streams container logs as text frames on the console route", async () => {
     const stream = Readable.from(["compiling...\n", "hello from stdout\n"]);
     const logs = { streamLogs: vi.fn().mockResolvedValue(stream) };
-    const { server, address } = await startServer({ accessReader: accessReader(), logs });
+    const { server, address } = await startServer({
+      accessReader: accessReader(),
+      logs,
+    });
     try {
       const { token } = signer.issueGuiSession(account, sessionId, 60);
       const socket = new WebSocket(
@@ -146,7 +167,9 @@ describe("gui-execution-api WebSocket routes", () => {
       );
       const chunks: string[] = [];
       await new Promise<void>((resolve) => {
-        socket.on("message", (data) => chunks.push(Buffer.from(data as Buffer).toString("utf8")));
+        socket.on("message", (data) =>
+          chunks.push(Buffer.from(data as Buffer).toString("utf8")),
+        );
         socket.on("close", resolve);
       });
       expect(chunks.join("")).toContain("hello from stdout");
@@ -157,7 +180,9 @@ describe("gui-execution-api WebSocket routes", () => {
   });
 
   it("closes with 404 when the allocation never shows up", async () => {
-    const reader = accessReader({ findAllocation: vi.fn().mockResolvedValue(null) });
+    const reader = accessReader({
+      findAllocation: vi.fn().mockResolvedValue(null),
+    });
     const { server, address } = await startServer({ accessReader: reader });
     try {
       const { token } = signer.issueGuiSession(account, sessionId, 60);

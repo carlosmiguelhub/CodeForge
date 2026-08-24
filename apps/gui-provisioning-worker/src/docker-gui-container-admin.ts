@@ -35,8 +35,7 @@ export class DockerGuiContainerAdmin implements GuiContainerAdmin {
 
   async provision(spec: GuiContainerSpec): Promise<ProvisionedGuiContainer> {
     for (const file of spec.files) {
-      if (!safeFileName.test(file.path))
-        throw new Error("UNSAFE_FILE_NAME");
+      if (!safeFileName.test(file.path)) throw new Error("UNSAFE_FILE_NAME");
     }
 
     const allocationId = randomUUID();
@@ -91,8 +90,11 @@ export class DockerGuiContainerAdmin implements GuiContainerAdmin {
         websockifyPort: allocation.websockifyPort,
       };
     } catch (error) {
-      if (container) await container.remove({ force: true }).catch(() => undefined);
-      await rm(sourceDir, { recursive: true, force: true }).catch(() => undefined);
+      if (container)
+        await container.remove({ force: true }).catch(() => undefined);
+      await rm(sourceDir, { recursive: true, force: true }).catch(
+        () => undefined,
+      );
       throw error;
     }
   }

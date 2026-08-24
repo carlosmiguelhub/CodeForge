@@ -44,9 +44,7 @@ export interface UsageReader {
     institutionId: string,
     limit: number,
   ): Promise<readonly TopContributorRecord[]>;
-  resetActivityHistory(
-    institutionId: string,
-  ): Promise<ActivityResetSummary>;
+  resetActivityHistory(institutionId: string): Promise<ActivityResetSummary>;
 }
 
 export interface InfrastructureReader {

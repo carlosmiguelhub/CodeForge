@@ -49,8 +49,7 @@ export function SectionWorkspaceLockDialog({
         { method: "PATCH", body: JSON.stringify({ lockedWorkspaces: locked }) },
         true,
       );
-      if (!response.ok)
-        throw new Error("Workspace access could not be saved.");
+      if (!response.ok) throw new Error("Workspace access could not be saved.");
       onSaved(sectionSchema.parse(await response.json()));
     } catch {
       setError("Workspace access could not be saved.");

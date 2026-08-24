@@ -125,7 +125,12 @@ function expectClose(url: string, expectedCode: number, label: string) {
     const socket = new WebSocket(url);
     socket.once("close", (code) => {
       if (code === expectedCode) resolve();
-      else reject(new Error(`${label}: expected close code ${expectedCode}, got ${code}`));
+      else
+        reject(
+          new Error(
+            `${label}: expected close code ${expectedCode}, got ${code}`,
+          ),
+        );
     });
     socket.once("open", () => {
       // Some rejection paths only close after the upgrade succeeds — give
@@ -144,7 +149,9 @@ async function main() {
 
   const running = await waitForState(sessionId, ["running", "failed"], 20_000);
   if (running.state === "failed")
-    throw new Error(`Session failed to provision: ${running.failure_code ?? "unknown"}`);
+    throw new Error(
+      `Session failed to provision: ${running.failure_code ?? "unknown"}`,
+    );
   console.log("Session is running.");
 
   const account = {
@@ -169,7 +176,11 @@ async function main() {
   console.log("Tampered grant was rejected.");
 
   // --- Reject an expired grant ---
-  const { token: expiredToken } = signer.issueGuiSession(account, sessionId, -5);
+  const { token: expiredToken } = signer.issueGuiSession(
+    account,
+    sessionId,
+    -5,
+  );
   await expectClose(
     `${guiExecutionBaseUrl}/v1/gui-sessions/${sessionId}/vnc?token=${expiredToken}`,
     4401,
@@ -184,7 +195,12 @@ async function main() {
     );
     let buffer = "";
     const timer = setTimeout(
-      () => reject(new Error("Console stream did not include the expected marker in time.")),
+      () =>
+        reject(
+          new Error(
+            "Console stream did not include the expected marker in time.",
+          ),
+        ),
       15_000,
     );
     socket.on("message", (data) => {
@@ -201,7 +217,9 @@ async function main() {
     });
   });
   if (!consoleText.includes("gui-execution-api console smoke marker"))
-    throw new Error("Console stream did not carry the running app's real stdout.");
+    throw new Error(
+      "Console stream did not carry the running app's real stdout.",
+    );
   console.log("Console route streamed the real container's stdout.");
 
   // --- VNC: real protocol bytes from the real x11vnc/websockify stack ---
@@ -209,7 +227,10 @@ async function main() {
     const socket = new WebSocket(
       `${guiExecutionBaseUrl}/v1/gui-sessions/${sessionId}/vnc?token=${token}`,
     );
-    const timer = setTimeout(() => reject(new Error("No VNC banner received in time.")), 10_000);
+    const timer = setTimeout(
+      () => reject(new Error("No VNC banner received in time.")),
+      10_000,
+    );
     socket.once("message", (data) => {
       clearTimeout(timer);
       const text = Buffer.from(data as Buffer).toString("latin1");
@@ -222,8 +243,13 @@ async function main() {
     });
   });
   if (!vncBanner.startsWith("RFB "))
-    throw new Error(`Expected a real RFB protocol banner, got: ${JSON.stringify(vncBanner)}`);
-  console.log("VNC route relayed the real server's RFB handshake banner:", vncBanner.trim());
+    throw new Error(
+      `Expected a real RFB protocol banner, got: ${JSON.stringify(vncBanner)}`,
+    );
+  console.log(
+    "VNC route relayed the real server's RFB handshake banner:",
+    vncBanner.trim(),
+  );
 
   // --- Fast-path cleanup: closing the vnc connection tears the session down ---
   const stopSocket = new WebSocket(
@@ -234,7 +260,9 @@ async function main() {
   await waitForCleanupComplete(sessionId, 15_000);
   const finalState = await waitForState(sessionId, ["stopped"], 5_000);
   if (finalState.state !== "stopped")
-    throw new Error("Session was not marked stopped after the vnc socket closed.");
+    throw new Error(
+      "Session was not marked stopped after the vnc socket closed.",
+    );
   console.log("Closing the vnc socket triggered the fast-path cleanup.");
 
   console.log("gui-execution-api smoke test passed.");

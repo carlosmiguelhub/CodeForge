@@ -29,7 +29,8 @@ export class MySqlAuditSink implements AuditSink, AuditReader {
     if (query.action) filters.push(eq(auditEvents.action, query.action));
     if (query.actorId) filters.push(eq(auditEvents.actorId, query.actorId));
     if (query.targetId) filters.push(eq(auditEvents.targetId, query.targetId));
-    if (query.from) filters.push(gte(auditEvents.occurredAt, new Date(query.from)));
+    if (query.from)
+      filters.push(gte(auditEvents.occurredAt, new Date(query.from)));
     if (query.to) filters.push(lte(auditEvents.occurredAt, new Date(query.to)));
     const where = and(...filters);
 

@@ -17,7 +17,11 @@ export function TextNode({ id, data, selected }: NodeProps<TextNodeType>) {
       className={`${selected ? "border-action" : "border-transparent"} ${isPendingSource ? "ring-action ring-2" : ""} rounded-control group/node min-w-24 border border-dashed px-2 py-1`}
       onDoubleClick={() => interaction.startRenamingNode(id)}
     >
-      <ConnectionHandle nodeId={id} position={Position.Top} selected={selected} />
+      <ConnectionHandle
+        nodeId={id}
+        position={Position.Top}
+        selected={selected}
+      />
       {isRenaming ? (
         <textarea
           autoFocus

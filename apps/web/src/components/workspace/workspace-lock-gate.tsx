@@ -18,7 +18,8 @@ export function WorkspaceLockGate({
   const checkAccess = useCallback(async () => {
     try {
       const response = await authorizedFetch("/v1/me/workspace-access");
-      if (!response.ok) throw new Error("Workspace access could not be checked.");
+      if (!response.ok)
+        throw new Error("Workspace access could not be checked.");
       const access = workspaceAccessSchema.parse(await response.json());
       setLocked(access.lockedWorkspaces.includes(workspace));
     } catch {
@@ -50,7 +51,10 @@ export function WorkspaceLockGate({
 
   return (
     <div className="relative">
-      <div aria-hidden="true" className="pointer-events-none blur-sm select-none">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none blur-sm select-none"
+      >
         {children}
       </div>
       <div className="absolute inset-0 grid place-items-center p-4">
@@ -65,8 +69,8 @@ export function WorkspaceLockGate({
             This workspace isn&apos;t available right now
           </h2>
           <p className="text-ink-muted mt-2 text-sm leading-6">
-            An administrator has restricted access to this section. Contact
-            an administrator if you believe this is incorrect.
+            An administrator has restricted access to this section. Contact an
+            administrator if you believe this is incorrect.
           </p>
         </div>
       </div>

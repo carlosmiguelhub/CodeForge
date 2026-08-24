@@ -29,7 +29,12 @@ function rules(
  */
 export function defineEditorThemes(
   monaco: typeof Monaco,
-  tokenPrefixes: { keyword: string; string: string; number: string; comment: string },
+  tokenPrefixes: {
+    keyword: string;
+    string: string;
+    number: string;
+    comment: string;
+  },
 ) {
   monaco.editor.defineTheme(DARK_THEME_NAME, {
     base: "vs-dark",
@@ -39,7 +44,12 @@ export function defineEditorThemes(
       tokenPrefixes.string,
       tokenPrefixes.number,
       tokenPrefixes.comment,
-      { keyword: "BEC2FF", string: "E5FD17", number: "50D8E9", comment: "73767C" },
+      {
+        keyword: "BEC2FF",
+        string: "E5FD17",
+        number: "50D8E9",
+        comment: "73767C",
+      },
     ),
     colors: {
       "editor.background": "#080809",
@@ -60,7 +70,12 @@ export function defineEditorThemes(
       tokenPrefixes.string,
       tokenPrefixes.number,
       tokenPrefixes.comment,
-      { keyword: "444FD6", string: "4D7C0F", number: "0E8FA1", comment: "888B94" },
+      {
+        keyword: "444FD6",
+        string: "4D7C0F",
+        number: "0E8FA1",
+        comment: "888B94",
+      },
     ),
     colors: {
       "editor.background": "#FFFFFF",

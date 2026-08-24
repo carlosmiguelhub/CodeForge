@@ -7,9 +7,9 @@ import { useEffect, useRef, useState } from "react";
 export function GuiViewport({ url }: Readonly<{ url: string | null }>) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">(
-    "connecting",
-  );
+  const [status, setStatus] = useState<
+    "connecting" | "connected" | "disconnected"
+  >("connecting");
   const [showHint, setShowHint] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -56,7 +56,11 @@ export function GuiViewport({ url }: Readonly<{ url: string | null }>) {
     return (
       <div className="text-ink-muted grid h-full place-items-center p-8 text-xs">
         <div className="text-center">
-          <MousePointerClick aria-hidden="true" className="mx-auto mb-2" size={20} />
+          <MousePointerClick
+            aria-hidden="true"
+            className="mx-auto mb-2"
+            size={20}
+          />
           Run your program to see its window here.
         </div>
       </div>
@@ -83,7 +87,9 @@ export function GuiViewport({ url }: Readonly<{ url: string | null }>) {
       </button>
       {status !== "connected" ? (
         <div className="text-ink-muted bg-canvas/80 absolute inset-0 grid place-items-center text-xs">
-          {status === "connecting" ? "Connecting to your program…" : "Disconnected."}
+          {status === "connecting"
+            ? "Connecting to your program…"
+            : "Disconnected."}
         </div>
       ) : showHint ? (
         <div className="border-structural bg-elevated text-ink-secondary rounded-control pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 border px-3 py-1.5 text-[11px] shadow-lg">

@@ -7,10 +7,15 @@ import type {
   WorkspaceAllocationListQuery,
 } from "@sqweb/contracts";
 
-import type { AdminInsightsServiceDependencies, AuditEventListQuery } from "./types";
+import type {
+  AdminInsightsServiceDependencies,
+  AuditEventListQuery,
+} from "./types";
 
 export class AdminInsightsService {
-  constructor(private readonly dependencies: AdminInsightsServiceDependencies) {}
+  constructor(
+    private readonly dependencies: AdminInsightsServiceDependencies,
+  ) {}
 
   async getDashboardStats(identity: VerifiedIdentity) {
     const actor = await this.dependencies.identity.requireActiveAccount(
@@ -50,7 +55,10 @@ export class AdminInsightsService {
     return this.dependencies.usage.getUsageForOwner(target.id);
   }
 
-  async listAuditEvents(identity: VerifiedIdentity, query: AuditEventListQuery) {
+  async listAuditEvents(
+    identity: VerifiedIdentity,
+    query: AuditEventListQuery,
+  ) {
     await this.dependencies.identity.requireActiveAccount(identity, [
       "administrator",
     ]);

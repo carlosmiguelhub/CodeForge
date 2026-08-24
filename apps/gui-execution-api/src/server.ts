@@ -106,7 +106,8 @@ export async function buildGuiExecutionServer(dependencies: {
       return;
     }
     stream.on("data", (chunk: Buffer) => {
-      if (socket.readyState === WebSocket.OPEN) socket.send(chunk.toString("utf8"));
+      if (socket.readyState === WebSocket.OPEN)
+        socket.send(chunk.toString("utf8"));
     });
     stream.on("end", () => socket.close());
     socket.on("close", () => {
@@ -142,9 +143,15 @@ export async function buildGuiExecutionServer(dependencies: {
     );
 
     const closeBoth = () => {
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
+      if (
+        socket.readyState === WebSocket.OPEN ||
+        socket.readyState === WebSocket.CONNECTING
+      )
         socket.close();
-      if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING)
+      if (
+        upstream.readyState === WebSocket.OPEN ||
+        upstream.readyState === WebSocket.CONNECTING
+      )
         upstream.close();
     };
 

@@ -145,7 +145,7 @@ function ContributorRow({
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <span
-            className={`rounded-control grid size-9 shrink-0 place-items-center border font-heading text-sm font-semibold ${
+            className={`rounded-control font-heading grid size-9 shrink-0 place-items-center border text-sm font-semibold ${
               contributor.rank === 1
                 ? "border-action/30 bg-action/10 text-action-soft"
                 : isTopThree

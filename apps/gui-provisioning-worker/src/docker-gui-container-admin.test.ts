@@ -39,7 +39,9 @@ describe("DockerGuiContainerAdmin", () => {
 
     async function listenOnEphemeralPort(): Promise<number> {
       listener = createServer();
-      await new Promise<void>((resolve) => listener?.listen(0, "127.0.0.1", resolve));
+      await new Promise<void>((resolve) =>
+        listener?.listen(0, "127.0.0.1", resolve),
+      );
       return (listener.address() as AddressInfo).port;
     }
 
@@ -51,7 +53,9 @@ describe("DockerGuiContainerAdmin", () => {
       // to reach into DockerGuiContainerAdmin's internals.
       const port = await listenOnEphemeralPort();
       const inspect = vi.fn().mockResolvedValue({
-        NetworkSettings: { Ports: { "6080/tcp": [{ HostPort: String(port) }] } },
+        NetworkSettings: {
+          Ports: { "6080/tcp": [{ HostPort: String(port) }] },
+        },
       });
       const start = vi.fn().mockResolvedValue(undefined);
       const createContainer = vi.fn().mockResolvedValue({
@@ -116,7 +120,9 @@ describe("DockerGuiContainerAdmin", () => {
     const remove = vi.fn().mockResolvedValue(undefined);
     const stop = vi.fn().mockResolvedValue(undefined);
     const inspect = vi.fn().mockResolvedValue({
-      Mounts: [{ Destination: "/workspace/src", Source: "/tmp/does-not-exist" }],
+      Mounts: [
+        { Destination: "/workspace/src", Source: "/tmp/does-not-exist" },
+      ],
     });
     const getContainer = vi.fn().mockReturnValue({ inspect, stop, remove });
     const admin = new DockerGuiContainerAdmin(

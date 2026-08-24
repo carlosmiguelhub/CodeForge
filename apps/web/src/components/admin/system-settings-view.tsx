@@ -110,11 +110,13 @@ export function SystemSettingsView() {
     try {
       const response = await auth.authorizedFetch(
         "/v1/admin/settings/activity-reset",
-        { method: "POST", body: JSON.stringify({ reason: resetReason.trim() }) },
+        {
+          method: "POST",
+          body: JSON.stringify({ reason: resetReason.trim() }),
+        },
         true,
       );
-      if (!response.ok)
-        throw new Error("Activity numbers could not be reset.");
+      if (!response.ok) throw new Error("Activity numbers could not be reset.");
       const parsed = activityResetSummarySchema.parse(await response.json());
       setResetSummary(parsed);
       setConfirmingReset(false);
@@ -194,8 +196,8 @@ export function SystemSettingsView() {
         </h3>
         <p className="text-ink-muted mt-0.5 text-xs">
           Shown to students and teachers when they&apos;re signed out for
-          maintenance. Leave blank to use the default message.
-          Administrators are never signed out or blocked.
+          maintenance. Leave blank to use the default message. Administrators
+          are never signed out or blocked.
         </p>
         <textarea
           value={messageDraft}
@@ -242,8 +244,8 @@ export function SystemSettingsView() {
           <div className="border-danger/30 bg-danger/5 rounded-control mt-3 border p-3">
             <p className="text-ink-primary text-xs leading-5">
               This immediately signs out every student and teacher currently
-              signed in, and blocks new sign-ins until you end maintenance
-              mode. Administrators are not affected.
+              signed in, and blocks new sign-ins until you end maintenance mode.
+              Administrators are not affected.
             </p>
             <div className="mt-3 flex justify-end gap-2">
               <button
@@ -286,8 +288,8 @@ export function SystemSettingsView() {
 
         <p className="text-ink-muted mt-3 text-xs leading-5">
           Saved SQL workspaces, code files, ERD diagrams, saved queries, and
-          Java GUI workspace files are never touched. A run or session still
-          in progress is skipped, never interrupted.
+          Java GUI workspace files are never touched. A run or session still in
+          progress is skipped, never interrupted.
         </p>
 
         {resetSummary ? (
@@ -336,8 +338,8 @@ export function SystemSettingsView() {
           <div className="border-danger/30 bg-danger/5 rounded-control mt-3 border p-3">
             <p className="text-ink-primary text-xs leading-5">
               This permanently deletes the finished SQL/code run history and
-              finished Java GUI session history for every student. It cannot
-              be undone. No saved files, diagrams, or in-progress work are
+              finished Java GUI session history for every student. It cannot be
+              undone. No saved files, diagrams, or in-progress work are
               affected.
             </p>
             <label className="text-ink-muted mt-3 mb-1.5 block text-[11px]">

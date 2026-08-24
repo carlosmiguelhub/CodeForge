@@ -233,7 +233,9 @@ describe("UserDetailPanel", () => {
       expect(screen.getByText("Student One")).toBeInTheDocument(),
     );
 
-    mocks.authorizedFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    mocks.authorizedFetch.mockResolvedValueOnce(
+      new Response(null, { status: 204 }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Send reset link/ }));
 
     await waitFor(() =>
@@ -350,9 +352,7 @@ describe("UserDetailPanel", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Delete account/ }));
-    expect(
-      screen.getByText(/This permanently deletes/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/This permanently deletes/)).toBeInTheDocument();
 
     mocks.authorizedFetch.mockResolvedValueOnce(
       new Response(null, { status: 204 }),

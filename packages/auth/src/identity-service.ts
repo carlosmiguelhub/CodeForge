@@ -122,9 +122,10 @@ export class IdentityService {
     }
 
     if (!account.roles.includes("administrator")) {
-      const maintenance = await this.dependencies.institutions.getMaintenanceState(
-        account.institutionId,
-      );
+      const maintenance =
+        await this.dependencies.institutions.getMaintenanceState(
+          account.institutionId,
+        );
       if (maintenance.enabled) {
         throw new AuthorizationError(
           "SYSTEM_MAINTENANCE",
@@ -238,9 +239,7 @@ export class IdentityService {
   async listAccounts(
     identity: VerifiedIdentity,
     query: AccountListQuery,
-  ): Promise<
-    AccountListResult & { page: number; pageSize: number }
-  > {
+  ): Promise<AccountListResult & { page: number; pageSize: number }> {
     const actor = await this.requireActiveAccount(identity, ["administrator"]);
     const result = await this.dependencies.accounts.listAccounts(
       actor.institutionId,
@@ -454,7 +453,10 @@ export class IdentityService {
         404,
       );
     }
-    await this.dependencies.provisioner.setPassword(targetFirebaseUid, password);
+    await this.dependencies.provisioner.setPassword(
+      targetFirebaseUid,
+      password,
+    );
     await this.dependencies.audit.record({
       actorId: actor.id,
       action: "account.password_set_by_admin",
@@ -525,7 +527,9 @@ export class IdentityService {
     }
     await this.dependencies.audit.record({
       actorId: actor.id,
-      action: enabled ? "system.maintenance_enabled" : "system.maintenance_disabled",
+      action: enabled
+        ? "system.maintenance_enabled"
+        : "system.maintenance_disabled",
       targetId: actor.institutionId,
       result: "succeeded",
       ...(message ? { reason: message } : {}),

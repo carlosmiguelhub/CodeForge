@@ -82,9 +82,7 @@ function resolveMainClass(content: JavaGuiWorkspaceContentColumn | null): {
   };
 }
 
-export class MySqlGuiSessionProvisioningRepository
-  implements GuiSessionProvisioningRepository
-{
+export class MySqlGuiSessionProvisioningRepository implements GuiSessionProvisioningRepository {
   constructor(private readonly pool: Pool) {}
 
   async claimRequested(): Promise<GuiSessionTask | null> {

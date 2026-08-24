@@ -71,9 +71,7 @@ export function UserDetailPanel({
     { tone: "success" | "error"; message: string } | undefined
   >(undefined);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [pendingStatus, setPendingStatus] = useState<StatusAction | null>(
-    null,
-  );
+  const [pendingStatus, setPendingStatus] = useState<StatusAction | null>(null);
   const [reason, setReason] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [settingPassword, setSettingPassword] = useState(false);
@@ -177,7 +175,9 @@ export function UserDetailPanel({
       setFeedback({
         tone: "error",
         message:
-          error instanceof Error ? error.message : "The role could not be added.",
+          error instanceof Error
+            ? error.message
+            : "The role could not be added.",
       });
     } finally {
       setBusyAction(null);
@@ -291,8 +291,7 @@ export function UserDetailPanel({
         { method: "POST", body: JSON.stringify({ password: newPassword }) },
         true,
       );
-      if (!response.ok)
-        throw new Error("The password could not be changed.");
+      if (!response.ok) throw new Error("The password could not be changed.");
       setFeedback({ tone: "success", message: "Password changed directly." });
       setSettingPassword(false);
       setNewPassword("");
@@ -319,8 +318,7 @@ export function UserDetailPanel({
         { method: "DELETE" },
         true,
       );
-      if (!response.ok)
-        throw new Error("The account could not be deleted.");
+      if (!response.ok) throw new Error("The account could not be deleted.");
       onDeleted(firebaseUid);
     } catch (error) {
       setFeedback({
@@ -371,9 +369,13 @@ export function UserDetailPanel({
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto p-5">
-          {loadError ? <IdentityStatus tone="error">{loadError}</IdentityStatus> : null}
+          {loadError ? (
+            <IdentityStatus tone="error">{loadError}</IdentityStatus>
+          ) : null}
           {feedback ? (
-            <IdentityStatus tone={feedback.tone}>{feedback.message}</IdentityStatus>
+            <IdentityStatus tone={feedback.tone}>
+              {feedback.message}
+            </IdentityStatus>
           ) : null}
 
           {!account ? (
@@ -489,7 +491,7 @@ export function UserDetailPanel({
                   ))}
                 </div>
                 {pendingStatus ? (
-                  <div className="border-divider bg-panel mt-3 rounded-control border p-3">
+                  <div className="border-divider bg-panel rounded-control mt-3 border p-3">
                     <label className="text-ink-muted mb-1.5 block text-[11px]">
                       Reason (at least 8 characters)
                       <textarea
@@ -567,7 +569,7 @@ export function UserDetailPanel({
                   reach the user.
                 </p>
                 {settingPassword ? (
-                  <div className="border-divider bg-panel mt-3 rounded-control border p-3">
+                  <div className="border-divider bg-panel rounded-control mt-3 border p-3">
                     <label className="text-ink-muted mb-1.5 block text-[11px]">
                       New password
                       <input
@@ -715,9 +717,7 @@ export function UserDetailPanel({
                         onClick={() => void deleteAccount()}
                         className="rounded-control bg-danger hover:bg-danger/90 flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {busyAction === "delete" ? (
-                          <Spinner size={13} />
-                        ) : null}
+                        {busyAction === "delete" ? <Spinner size={13} /> : null}
                         Delete permanently
                       </button>
                     </div>

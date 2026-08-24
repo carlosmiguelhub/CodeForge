@@ -8,7 +8,13 @@ import {
   type Role,
   type Section,
 } from "@sqweb/contracts";
-import { Check, ChevronLeft, ChevronRight, Search, UserPlus } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  UserPlus,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -114,7 +120,8 @@ export function UserList() {
 
   function onSearchChange(value: string) {
     setSearch(value);
-    if (searchTimeout.current !== null) window.clearTimeout(searchTimeout.current);
+    if (searchTimeout.current !== null)
+      window.clearTimeout(searchTimeout.current);
     searchTimeout.current = window.setTimeout(() => {
       void load(1);
     }, 300);
@@ -191,7 +198,11 @@ export function UserList() {
 
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
           <div className="border-structural bg-canvas rounded-control flex min-h-9 min-w-48 flex-1 items-center gap-2 border px-2.5">
-            <Search aria-hidden="true" size={14} className="text-ink-disabled" />
+            <Search
+              aria-hidden="true"
+              size={14}
+              className="text-ink-disabled"
+            />
             <input
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -277,13 +288,17 @@ export function UserList() {
                     <td className="px-4 py-2.5">
                       <button
                         type="button"
-                        onClick={() => setSelectedFirebaseUid(account.firebaseUid)}
+                        onClick={() =>
+                          setSelectedFirebaseUid(account.firebaseUid)
+                        }
                         className="text-left"
                       >
                         <p className="text-ink-primary text-sm font-medium hover:underline">
                           {account.displayName}
                         </p>
-                        <p className="text-ink-muted text-xs">{account.email}</p>
+                        <p className="text-ink-muted text-xs">
+                          {account.email}
+                        </p>
                       </button>
                     </td>
                     <td className="px-4 py-2.5">
@@ -329,7 +344,9 @@ export function UserList() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setSelectedFirebaseUid(account.firebaseUid)}
+                          onClick={() =>
+                            setSelectedFirebaseUid(account.firebaseUid)
+                          }
                           className="text-action-soft text-[11px] font-medium hover:underline"
                         >
                           Manage

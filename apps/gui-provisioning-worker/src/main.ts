@@ -18,7 +18,11 @@ const environment = z
     GUI_RUNTIME_IMAGE_TAG: z.string().min(1).default("sqweb/gui-runtime:local"),
     GUI_SANDBOX_NETWORK: z.string().min(1).default("sqweb-gui-sandbox"),
     GUI_SESSION_CPU_LIMIT: z.string().min(1).default("1000m"),
-    GUI_SESSION_MEMORY_LIMIT_MB: z.coerce.number().int().positive().default(512),
+    GUI_SESSION_MEMORY_LIMIT_MB: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(512),
     WORKER_POLL_INTERVAL_MS: z.coerce
       .number()
       .int()

@@ -47,7 +47,8 @@ export class SectionService {
       identity,
       ["administrator"],
     );
-    const assignedCount = await this.dependencies.sections.countAssignedAccounts(id);
+    const assignedCount =
+      await this.dependencies.sections.countAssignedAccounts(id);
     if (assignedCount > 0) {
       throw new AuthorizationError(
         "VALIDATION_FAILED",
@@ -55,7 +56,10 @@ export class SectionService {
         400,
       );
     }
-    await this.dependencies.sections.archive(id, this.dependencies.institutionId);
+    await this.dependencies.sections.archive(
+      id,
+      this.dependencies.institutionId,
+    );
     await this.dependencies.audit.record({
       actorId: actor.id,
       action: "section.archived",
@@ -69,7 +73,10 @@ export class SectionService {
       identity,
       ["administrator"],
     );
-    await this.dependencies.sections.restore(id, this.dependencies.institutionId);
+    await this.dependencies.sections.restore(
+      id,
+      this.dependencies.institutionId,
+    );
     await this.dependencies.audit.record({
       actorId: actor.id,
       action: "section.restored",

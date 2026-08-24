@@ -40,7 +40,7 @@ export function GuideModal({
       onClick={onClose}
     >
       <div
-        className="border-structural bg-elevated rounded-panel flex max-h-[85vh] w-full min-w-0 max-w-2xl flex-col border shadow-2xl"
+        className="border-structural bg-elevated rounded-panel flex max-h-[85vh] w-full max-w-2xl min-w-0 flex-col border shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="border-divider flex items-start justify-between gap-4 border-b px-5 py-4">

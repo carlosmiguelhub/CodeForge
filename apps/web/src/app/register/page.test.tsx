@@ -65,18 +65,26 @@ describe("RegisterPage", () => {
   });
 
   it("loads the section list and lets the student pick one", async () => {
-    mocks.publicFetch.mockResolvedValue(new Response(JSON.stringify([section])));
+    mocks.publicFetch.mockResolvedValue(
+      new Response(JSON.stringify([section])),
+    );
     render(<RegisterPage />);
     await waitFor(() =>
-      expect(screen.getByRole("option", { name: "BSIT-3A" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("option", { name: "BSIT-3A" }),
+      ).toBeInTheDocument(),
     );
   });
 
   it("rejects a password with no special character before calling Firebase", async () => {
-    mocks.publicFetch.mockResolvedValue(new Response(JSON.stringify([section])));
+    mocks.publicFetch.mockResolvedValue(
+      new Response(JSON.stringify([section])),
+    );
     render(<RegisterPage />);
     await waitFor(() =>
-      expect(screen.getByRole("option", { name: "BSIT-3A" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("option", { name: "BSIT-3A" }),
+      ).toBeInTheDocument(),
     );
     await fillCommonFields();
     fireEvent.change(screen.getByLabelText("Password"), {
@@ -96,10 +104,14 @@ describe("RegisterPage", () => {
   });
 
   it("rejects mismatched password confirmation", async () => {
-    mocks.publicFetch.mockResolvedValue(new Response(JSON.stringify([section])));
+    mocks.publicFetch.mockResolvedValue(
+      new Response(JSON.stringify([section])),
+    );
     render(<RegisterPage />);
     await waitFor(() =>
-      expect(screen.getByRole("option", { name: "BSIT-3A" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("option", { name: "BSIT-3A" }),
+      ).toBeInTheDocument(),
     );
     await fillCommonFields();
     fireEvent.change(screen.getByLabelText("Password"), {
@@ -110,16 +122,22 @@ describe("RegisterPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
-    expect(await screen.findByText("Passwords do not match.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Passwords do not match."),
+    ).toBeInTheDocument();
     expect(mocks.createEmailAccount).not.toHaveBeenCalled();
   });
 
   it("creates the account and relays the chosen section for /continue", async () => {
     window.sessionStorage.clear();
-    mocks.publicFetch.mockResolvedValue(new Response(JSON.stringify([section])));
+    mocks.publicFetch.mockResolvedValue(
+      new Response(JSON.stringify([section])),
+    );
     render(<RegisterPage />);
     await waitFor(() =>
-      expect(screen.getByRole("option", { name: "BSIT-3A" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("option", { name: "BSIT-3A" }),
+      ).toBeInTheDocument(),
     );
     await fillCommonFields();
     fireEvent.change(screen.getByLabelText("Password"), {
@@ -137,15 +155,21 @@ describe("RegisterPage", () => {
         "Ada Lovelace",
       ),
     );
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/login?registered=1"));
+    await waitFor(() =>
+      expect(mocks.push).toHaveBeenCalledWith("/login?registered=1"),
+    );
     expect(getPendingSectionId()).toBe(section.id);
   });
 
   it("has no automated accessibility violations once sections load", async () => {
-    mocks.publicFetch.mockResolvedValue(new Response(JSON.stringify([section])));
+    mocks.publicFetch.mockResolvedValue(
+      new Response(JSON.stringify([section])),
+    );
     const { container } = render(<RegisterPage />);
     await waitFor(() =>
-      expect(screen.getByRole("option", { name: "BSIT-3A" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("option", { name: "BSIT-3A" }),
+      ).toBeInTheDocument(),
     );
     const results = await axe.run(container, {
       rules: { "color-contrast": { enabled: false } },

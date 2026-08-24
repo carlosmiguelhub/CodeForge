@@ -177,8 +177,8 @@ export default function RegisterPage() {
           autoComplete="new-password"
         />
         <p className="text-ink-muted -mt-2 text-xs leading-5">
-          At least 8 characters, including one special character (e.g. ! @ #
-          $ %).
+          At least 8 characters, including one special character (e.g. ! @ # $
+          %).
         </p>
         <button
           type="submit"

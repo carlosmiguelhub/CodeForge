@@ -16,7 +16,8 @@ import type {
   TextNodeType,
 } from "./types";
 
-export type ShapeToolId = "entity" | "rectangle" | "diamond" | "ellipse" | "text";
+export type ShapeToolId =
+  "entity" | "rectangle" | "diamond" | "ellipse" | "text";
 
 // Matches the ReactFlow snapGrid below — keeping new shapes snapped at
 // creation time too means every shape starts aligned, not just ones that
@@ -94,7 +95,10 @@ export function addAttributeRow(entity: EntityNodeType): EntityNodeType {
   };
   return {
     ...entity,
-    data: { ...entity.data, attributes: [...entity.data.attributes, attribute] },
+    data: {
+      ...entity.data,
+      attributes: [...entity.data.attributes, attribute],
+    },
   };
 }
 

@@ -54,8 +54,7 @@ export type CodeWorkspaceSaveRequest = z.infer<
 >;
 
 type CodeWorkspaceNode =
-  | z.infer<typeof codeFileNodeSchema>
-  | CodeFolderNodeInput;
+  z.infer<typeof codeFileNodeSchema> | CodeFolderNodeInput;
 
 export function countCodeWorkspaceFiles(node: CodeWorkspaceNode): number {
   if (node.kind === "file") return 1;

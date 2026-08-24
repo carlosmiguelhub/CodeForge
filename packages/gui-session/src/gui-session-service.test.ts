@@ -24,7 +24,9 @@ const identity = { uid: "student", email: actor.email, emailVerified: true };
 
 const mainFileId = "00000000-0000-4000-8000-000000000020";
 const content: JavaGuiWorkspaceContent = {
-  files: [{ id: mainFileId, name: "Main.java", sourceCode: "public class Main {}" }],
+  files: [
+    { id: mainFileId, name: "Main.java", sourceCode: "public class Main {}" },
+  ],
   openFileIds: [mainFileId],
   activeFileId: mainFileId,
   mainFileId,
@@ -43,7 +45,9 @@ const runningRecord: GuiSessionRecord = {
 };
 
 function setup() {
-  const sections = { assertWorkspaceUnlocked: vi.fn().mockResolvedValue(undefined) };
+  const sections = {
+    assertWorkspaceUnlocked: vi.fn().mockResolvedValue(undefined),
+  };
   const workspaces = { save: vi.fn().mockResolvedValue(undefined) };
   const sessions: GuiSessionAccessRepository = {
     create: vi.fn().mockResolvedValue(undefined),
@@ -122,10 +126,7 @@ describe("GuiSessionService", () => {
   });
 
   it("never returns a grant from getSession", async () => {
-    const result = await helpers.service.getSession(
-      identity,
-      runningRecord.id,
-    );
+    const result = await helpers.service.getSession(identity, runningRecord.id);
     expect(result.grant).toBeNull();
     expect(result.state).toBe("running");
   });

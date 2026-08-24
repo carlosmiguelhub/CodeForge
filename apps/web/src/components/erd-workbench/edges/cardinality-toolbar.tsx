@@ -4,7 +4,11 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { Cardinality } from "../types";
-import { glyphFor, notationGroups, notationOptions } from "./cardinality-markers";
+import {
+  glyphFor,
+  notationGroups,
+  notationOptions,
+} from "./cardinality-markers";
 
 // A short stub line behind the glyph, with the endpoint sitting right on
 // the outer edge of the box — the same pattern Lucidchart's endpoint picker
@@ -59,7 +63,8 @@ function NotationSelect({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const active =
-    notationOptions.find((option) => option.value === value) ?? notationOptions[0]!;
+    notationOptions.find((option) => option.value === value) ??
+    notationOptions[0]!;
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +127,11 @@ function NotationSelect({
                       : "text-ink-secondary hover:bg-elevated-high hover:text-ink-primary"
                   } rounded-control flex min-h-10 w-full items-center justify-center px-1`}
                 >
-                  <NotationIcon cardinality={option.value} facing={facing} width={52} />
+                  <NotationIcon
+                    cardinality={option.value}
+                    facing={facing}
+                    width={52}
+                  />
                   <span className="sr-only">{option.label}</span>
                 </button>
               ))}

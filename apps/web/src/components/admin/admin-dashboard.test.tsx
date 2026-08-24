@@ -31,15 +31,29 @@ const stats = {
   },
   workspaceUsage: [
     { workspace: "sql-workbench", totalCount: 100, dailyCounts },
-    { workspace: "code-compiler", totalCount: 0, dailyCounts: dailyCounts.map((d) => ({ ...d, count: 0 })) },
-    { workspace: "erd-editor", totalCount: 2, dailyCounts: dailyCounts.map((d) => ({ ...d, count: 0 })) },
-    { workspace: "saved-queries", totalCount: 1, dailyCounts: dailyCounts.map((d) => ({ ...d, count: 0 })) },
+    {
+      workspace: "code-compiler",
+      totalCount: 0,
+      dailyCounts: dailyCounts.map((d) => ({ ...d, count: 0 })),
+    },
+    {
+      workspace: "erd-editor",
+      totalCount: 2,
+      dailyCounts: dailyCounts.map((d) => ({ ...d, count: 0 })),
+    },
+    {
+      workspace: "saved-queries",
+      totalCount: 1,
+      dailyCounts: dailyCounts.map((d) => ({ ...d, count: 0 })),
+    },
   ],
 };
 
 describe("AdminDashboard", () => {
   it("shows institution-wide stat tiles once loaded", async () => {
-    mocks.authorizedFetch.mockResolvedValue(new Response(JSON.stringify(stats)));
+    mocks.authorizedFetch.mockResolvedValue(
+      new Response(JSON.stringify(stats)),
+    );
     render(<AdminDashboard />);
     await waitFor(() => expect(screen.getByText("5")).toBeInTheDocument());
     expect(screen.getByText("Total users")).toBeInTheDocument();
@@ -51,7 +65,9 @@ describe("AdminDashboard", () => {
   });
 
   it("shows a usage card with the total count for each workspace", async () => {
-    mocks.authorizedFetch.mockResolvedValue(new Response(JSON.stringify(stats)));
+    mocks.authorizedFetch.mockResolvedValue(
+      new Response(JSON.stringify(stats)),
+    );
     render(<AdminDashboard />);
     await waitFor(() => expect(screen.getByText("100")).toBeInTheDocument());
     expect(screen.getByText("SQL Workbench")).toBeInTheDocument();
@@ -61,7 +77,9 @@ describe("AdminDashboard", () => {
   });
 
   it("shows a tooltip with the day's count on sparkline hover", async () => {
-    mocks.authorizedFetch.mockResolvedValue(new Response(JSON.stringify(stats)));
+    mocks.authorizedFetch.mockResolvedValue(
+      new Response(JSON.stringify(stats)),
+    );
     render(<AdminDashboard />);
     await waitFor(() => expect(screen.getByText("100")).toBeInTheDocument());
 
@@ -85,7 +103,9 @@ describe("AdminDashboard", () => {
   });
 
   it("has no automated accessibility violations once loaded", async () => {
-    mocks.authorizedFetch.mockResolvedValue(new Response(JSON.stringify(stats)));
+    mocks.authorizedFetch.mockResolvedValue(
+      new Response(JSON.stringify(stats)),
+    );
     const { container } = render(<AdminDashboard />);
     await waitFor(() => expect(screen.getByText("100")).toBeInTheDocument());
     const results = await axe.run(container, {

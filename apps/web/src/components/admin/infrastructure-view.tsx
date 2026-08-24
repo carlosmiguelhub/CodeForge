@@ -79,14 +79,16 @@ export function InfrastructureView() {
 
 function OverviewSection() {
   const { authorizedFetch } = useAuth();
-  const [overview, setOverview] = useState<InfrastructureOverview | null>(
-    null,
-  );
+  const [overview, setOverview] = useState<InfrastructureOverview | null>(null);
   const [status, setStatus] = useState("Loading infrastructure overview…");
 
   const load = useCallback(async () => {
     try {
-      const response = await authorizedFetch("/v1/admin/infrastructure", {}, true);
+      const response = await authorizedFetch(
+        "/v1/admin/infrastructure",
+        {},
+        true,
+      );
       if (!response.ok)
         throw new Error("The infrastructure overview could not be loaded.");
       const parsed = infrastructureOverviewSchema.parse(await response.json());
@@ -253,7 +255,8 @@ function AllocationsSection() {
 
   function onSearchChange(value: string) {
     setSearch(value);
-    if (searchTimeout.current !== null) window.clearTimeout(searchTimeout.current);
+    if (searchTimeout.current !== null)
+      window.clearTimeout(searchTimeout.current);
     searchTimeout.current = window.setTimeout(() => {
       void load(1);
     }, 300);
@@ -268,8 +271,8 @@ function AllocationsSection() {
           Provisioned databases
         </h2>
         <p className="text-ink-muted mt-1 text-xs">
-          Every per-student MySQL database allocation, most recently
-          provisioned first.
+          Every per-student MySQL database allocation, most recently provisioned
+          first.
         </p>
       </div>
 
@@ -433,7 +436,11 @@ function GuiSessionOverviewSection() {
         resource from the MySQL pool above.
       </p>
       {!overview ? (
-        <p role="status" aria-live="polite" className="text-ink-muted mt-3 text-xs">
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-ink-muted mt-3 text-xs"
+        >
           {status}
         </p>
       ) : (
@@ -521,7 +528,8 @@ function GuiSessionsSection() {
 
   function onSearchChange(value: string) {
     setSearch(value);
-    if (searchTimeout.current !== null) window.clearTimeout(searchTimeout.current);
+    if (searchTimeout.current !== null)
+      window.clearTimeout(searchTimeout.current);
     searchTimeout.current = window.setTimeout(() => {
       void load(1);
     }, 300);
