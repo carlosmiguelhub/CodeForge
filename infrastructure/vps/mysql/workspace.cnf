@@ -1,0 +1,12 @@
+# See platform.cnf for why these are fixed and conservative rather than
+# left at MySQL's defaults. This instance holds every student's isolated
+# SQL workspace database, so max_connections is a bit higher than the
+# platform DB's — execution-api pools connections, but each active
+# workspace still gets its own MySQL user/schema.
+[mysqld]
+innodb_buffer_pool_size = 256M
+innodb_buffer_pool_instances = 1
+innodb_log_file_size = 64M
+max_connections = 100
+performance_schema = OFF
+table_open_cache = 400

@@ -18,7 +18,7 @@ describe("LocalWorkspaceSecretStore", () => {
   it("round-trips a credential behind an opaque reference", async () => {
     const root = await mkdtemp(join(tmpdir(), "sqweb-secret-test-"));
     roots.push(root);
-    const store = new LocalWorkspaceSecretStore(root, "test");
+    const store = new LocalWorkspaceSecretStore(root);
     const credential = {
       host: "127.0.0.1",
       port: 3308,
@@ -40,11 +40,8 @@ describe("LocalWorkspaceSecretStore", () => {
     await expect(store.get(secretRef)).rejects.toThrow();
   });
 
-  it("rejects unsafe references and production use", async () => {
-    expect(
-      () => new LocalWorkspaceSecretStore("ignored", "production"),
-    ).toThrow(/cannot run in production/);
-    const store = new LocalWorkspaceSecretStore("ignored", "test");
+  it("rejects unsafe references", async () => {
+    const store = new LocalWorkspaceSecretStore("ignored");
     await expect(
       store.get("local-secret://../credential.json"),
     ).rejects.toThrow(/Unsafe/);

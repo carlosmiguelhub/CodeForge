@@ -10,11 +10,7 @@ import type {
 export class LocalWorkspaceSecretStore implements WorkspaceSecretStore {
   private readonly root: string;
 
-  constructor(root: string, nodeEnvironment: string) {
-    if (nodeEnvironment === "production")
-      throw new Error(
-        "The local workspace secret store cannot run in production.",
-      );
+  constructor(root: string) {
     this.root = resolve(root);
   }
 

@@ -48,12 +48,12 @@ const environment = z
   .superRefine((value, context) => {
     if (
       value.NODE_ENV === "production" &&
-      (value.SQWEB_APP_CHECK_MODE === "local" ||
-        value.WORKSPACE_SECRET_STORE === "local")
+      value.SQWEB_APP_CHECK_MODE === "local"
     )
       context.addIssue({
         code: "custom",
-        message: "Local security adapters cannot run in production.",
+        path: ["SQWEB_APP_CHECK_MODE"],
+        message: "Local App Check bypass cannot run in production.",
       });
     if (
       value.SQWEB_APP_CHECK_MODE === "local" &&
@@ -105,7 +105,6 @@ const secrets =
   environment.WORKSPACE_SECRET_STORE === "local"
     ? new LocalWorkspaceSecretStore(
         environment.WORKSPACE_LOCAL_SECRET_DIRECTORY ?? "",
-        environment.NODE_ENV,
       )
     : new GoogleWorkspaceSecretStore(environment.GOOGLE_CLOUD_PROJECT ?? "");
 const runner = new MySqlRunner();

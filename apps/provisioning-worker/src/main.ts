@@ -32,15 +32,6 @@ const environment = z
   })
   .superRefine((value, context) => {
     if (
-      value.NODE_ENV === "production" &&
-      value.WORKSPACE_SECRET_STORE === "local"
-    )
-      context.addIssue({
-        code: "custom",
-        path: ["WORKSPACE_SECRET_STORE"],
-        message: "Production requires Google Secret Manager.",
-      });
-    if (
       value.WORKSPACE_SECRET_STORE === "google" &&
       !value.GOOGLE_CLOUD_PROJECT
     )
@@ -82,7 +73,6 @@ const worker = new ProvisioningWorker({
     environment.WORKSPACE_SECRET_STORE === "local"
       ? new LocalWorkspaceSecretStore(
           environment.WORKSPACE_LOCAL_SECRET_DIRECTORY ?? "",
-          environment.NODE_ENV,
         )
       : new GoogleWorkspaceSecretStore(environment.GOOGLE_CLOUD_PROJECT ?? ""),
   poolInstanceId: environment.WORKSPACE_POOL_INSTANCE_ID,

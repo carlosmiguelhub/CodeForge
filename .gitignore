@@ -10,7 +10,11 @@ coverage/
 # Local environment and secrets
 .env
 .env.*
-!.env.example
+# Any *.example template (.env.example, .env.local.example,
+# .env.prod.example, ...) is a placeholder file meant to be committed —
+# only the broader .env.* pattern above was ever meant to catch real
+# secrets.
+!.env*.example
 *.local
 *.local.log
 *.local.error.log
@@ -25,6 +29,9 @@ test-results/
 .eslintcache
 firebase-debug.log
 infrastructure/local/workspace-secrets/
+infrastructure/vps/.env.prod
+infrastructure/vps/firebase-service-account.json
+infrastructure/vps/workspace-secrets/
 
 # IDE and operating system
 .DS_Store

@@ -1,0 +1,30 @@
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+coverage
+**/coverage
+.git
+.turbo
+.eslintcache
+**/*.tsbuildinfo
+
+# Local secrets/logs — never bake these into an image layer even though
+# they're already gitignored; a local checkout can still have them on disk.
+.env
+.env.*
+!.env.example
+!**/.env.local.example
+*.local
+*.local.log
+*.local.error.log
+infrastructure/local/workspace-secrets/
+
+# Not needed inside a build context
+.claude
+.vscode
+plans
+*.md
+!README.md

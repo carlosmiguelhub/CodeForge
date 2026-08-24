@@ -1,0 +1,179 @@
+name: codeforge-prod
+
+# Deploy from the repo ROOT (not this directory), so the build contexts
+# resolve correctly for the npm-workspaces monorepo:
+#   docker compose -f infrastructure/vps/docker-compose.prod.yml --env-file infrastructure/vps/.env.prod up -d --build
+#
+# apps/web is NOT here — it's deployed to Vercel, not this box.
+# apps/gui-execution-api and apps/gui-provisioning-worker are NOT here
+# either — the Java GUI Workspace is deliberately excluded from this
+# deployment (see DEPLOY.md); every active section already has it
+# locked server-side.
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: codeforge-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Matches infrastructure/local's naming — the official image
+      # auto-creates this database + app user on first boot only, so
+      # PLATFORM_DATABASE_URL in .env.prod must reference these same
+      # values, not root.
+      MYSQL_DATABASE: sqweb_platform
+      MYSQL_USER: sqweb_app
+      MYSQL_PASSWORD: ${PLATFORM_DB_APP_PASSWORD}
+    volumes:
+      - codeforge_mysql_data:/var/lib/mysql
+      - ../../packages/database-platform/migrations:/docker-entrypoint-initdb.d:ro
+      - ./mysql/platform.cnf:/etc/mysql/conf.d/tuning.cnf:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    networks: [codeforge]
+
+  workspace-mysql:
+    image: mysql:8.4
+    container_name: codeforge-workspace-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WORKSPACE_MYSQL_ROOT_PASSWORD}
+    volumes:
+      - codeforge_workspace_mysql_data:/var/lib/mysql
+      - ./mysql/workspace.cnf:/etc/mysql/conf.d/tuning.cnf:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u root -p$${WORKSPACE_MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    networks: [codeforge]
+
+  platform-api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-service/Dockerfile
+      args:
+        SERVICE: platform-api
+    container_name: codeforge-platform-api
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      PORT: 8080
+      GOOGLE_APPLICATION_CREDENTIALS: /repo/firebase-service-account.json
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      # Firebase Admin SDK uses Application Default Credentials
+      # (applicationDefault() in main.ts) — off GCP that means a real
+      # service-account key file. Download one from Firebase Console →
+      # Project Settings → Service Accounts, place it at
+      # infrastructure/vps/firebase-service-account.json on the VPS (never
+      # commit it — see .gitignore).
+      - ./firebase-service-account.json:/repo/firebase-service-account.json:ro
+    networks: [codeforge]
+
+  execution-api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-service/Dockerfile
+      args:
+        SERVICE: execution-api
+    container_name: codeforge-execution-api
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      PORT: 8081
+      GOOGLE_APPLICATION_CREDENTIALS: /repo/firebase-service-account.json
+    depends_on:
+      workspace-mysql:
+        condition: service_healthy
+    volumes:
+      - ./firebase-service-account.json:/repo/firebase-service-account.json:ro
+      # Same host directory provisioning-worker writes credential files
+      # into (WORKSPACE_SECRET_STORE=local, see .env.prod) — mounted at the
+      # same internal path in both services so one shared
+      # WORKSPACE_LOCAL_SECRET_DIRECTORY value in .env.prod works for both.
+      - ./workspace-secrets:/workspace-secrets
+    networks: [codeforge]
+
+  provisioning-worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-service/Dockerfile
+      args:
+        SERVICE: provisioning-worker
+    container_name: codeforge-provisioning-worker
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      workspace-mysql:
+        condition: service_healthy
+    volumes:
+      - ./workspace-secrets:/workspace-secrets
+    networks: [codeforge]
+
+  interactive-run-api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/node-service/Dockerfile
+      args:
+        SERVICE: interactive-run-api
+    container_name: codeforge-interactive-run-api
+    restart: unless-stopped
+    # Needs root to reach the host's Docker socket below (verified locally:
+    # the Dockerfile's non-root "sqweb" user gets EACCES connecting to
+    # /var/run/docker.sock — its GID never matches the host socket's group).
+    # This service already effectively has host-root-equivalent power
+    # through that socket regardless of its in-container UID, so running
+    # it as root doesn't meaningfully widen its blast radius — it's
+    # trusted first-party code; the actual untrusted-code sandboxing
+    # happens one level down, in the ephemeral code-runtime containers
+    # this process spawns (see interactive-runner.ts's CapDrop/
+    # ReadonlyRootfs/NetworkMode:none/non-root-uid hardening).
+    user: root
+    env_file: .env.prod
+    environment:
+      PORT: 8084
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [codeforge]
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: codeforge-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro
+      - codeforge_certbot_www:/var/www/certbot:ro
+      - codeforge_certbot_conf:/etc/letsencrypt:ro
+    depends_on:
+      - platform-api
+      - execution-api
+      - interactive-run-api
+    networks: [codeforge]
+
+networks:
+  codeforge:
+
+volumes:
+  codeforge_mysql_data:
+  codeforge_workspace_mysql_data:
+  codeforge_certbot_www:
+  codeforge_certbot_conf:

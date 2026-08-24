@@ -1,0 +1,13 @@
+# Conservative fixed sizing for a 4GB VPS running two MySQL instances plus
+# five Node services plus interactive-run-api's spawned containers
+# alongside each other. Defaults are sized for a dedicated box with much
+# more headroom than this one has — don't remove this file "to get MySQL's
+# real performance," it's deliberately trading peak throughput for staying
+# inside a small, fixed memory budget.
+[mysqld]
+innodb_buffer_pool_size = 256M
+innodb_buffer_pool_instances = 1
+innodb_log_file_size = 64M
+max_connections = 50
+performance_schema = OFF
+table_open_cache = 200
