@@ -109,15 +109,31 @@ Watch it come up:
 docker compose -f infrastructure/vps/docker-compose.prod.yml logs -f
 ```
 
-### Seed the one institution + workspace pool row
+### Fix the workspace-secrets directory permissions
 
-Every other row a fresh install needs (institution, workspace pool
-instance) has to be inserted once — there's no seed script for this
-(`scripts/bootstrap-local.ts` exists but is entangled with the Firebase
-**emulator** and leftover classroom-platform seed data from before the
-CodeForge pivot — don't run it here, it'll fail on the emulator call and
-seed departments/programs/courses this app doesn't use anymore). Plain
-SQL instead:
+`docker compose up` auto-creates the `./workspace-secrets` bind-mount
+directory the first time it's referenced — owned by `root:root`, mode
+`755`. But `execution-api` and `provisioning-worker` both run as the
+Dockerfile's non-root `sqweb` user (uid `999`), which can't write to a
+root-owned directory. Left unfixed, every workspace provisioning attempt
+fails instantly with a generic `PROVISIONING_FAILED` (the actual MySQL
+`CREATE DATABASE`/`CREATE USER` steps succeed — it's the credential file
+write to this directory that silently fails, and none of this path logs
+anything to `docker compose logs`, so this is easy to lose an hour to).
+Fix it once, right after the first `up -d --build`:
+
+```bash
+chown -R 999:999 infrastructure/vps/workspace-secrets
+```
+
+### Seed the institution, workspace pool row, and at least one section
+
+A fresh install needs three rows inserted once — there's no seed script
+for this (`scripts/bootstrap-local.ts` exists but is entangled with the
+Firebase **emulator** and leftover classroom-platform seed data from
+before the CodeForge pivot — don't run it here, it'll fail on the
+emulator call and seed departments/programs/courses this app doesn't use
+anymore). Plain SQL instead:
 
 ```bash
 docker compose -f infrastructure/vps/docker-compose.prod.yml exec mysql \
@@ -129,12 +145,18 @@ INSERT INTO workspace_pool_instances
   (id, environment, region, service_ref, state, database_count, capacity_json)
 VALUES ('<WORKSPACE_POOL_INSTANCE_ID from .env.prod>', 'production', 'vps',
   'workspace-mysql:3306', 'active', 0, JSON_OBJECT('maximumDatabases', 100));
+
+INSERT INTO sections (id, institution_id, name)
+VALUES (UUID(), '<SQWEB_DEFAULT_INSTITUTION_ID from .env.prod>', 'General');
 "
 ```
 
 (`service_ref` is the compose service name + internal port — that's
 already correct as written above, don't change it unless you rename the
-`workspace-mysql` service in `docker-compose.prod.yml`.)
+`workspace-mysql` service in `docker-compose.prod.yml`. The registration
+form's "Section" dropdown is required and comes from the `sections` table
+— skip that last insert and registration fails client-side with
+"Select a section," dropdown permanently empty, no server error at all.)
 
 ### Promote your first admin
 
@@ -192,11 +214,27 @@ pointless before you have a domain to issue against.
 cd ~/CodeForge
 git pull
 docker compose -f infrastructure/vps/docker-compose.prod.yml --env-file infrastructure/vps/.env.prod up -d --build
+docker compose -f infrastructure/vps/docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
 Rebuilds and recreates only the services whose image actually changed.
 `mysql`/`workspace-mysql` keep their data (named volumes, untouched by
 `--build`).
+
+**The `nginx -s reload` line is not optional.** nginx resolves each
+upstream hostname (`platform-api`, `execution-api`, `interactive-run-api`)
+to a container IP once, at its own startup/reload — it does not notice
+when Docker recreates one of those containers with a new IP afterward.
+Skip the reload and you'll get a working deploy that still 502s through
+nginx until something happens to reload it. (Confirmed the hard way:
+this exact thing broke `exec.code-forge.online` mid-session even though
+`execution-api` itself was healthy the whole time — `docker compose ps`
+showed it "Up," its own logs showed it listening, and `curl` from inside
+the box worked fine on its container IP; only requests through nginx
+502'd. It might not remember every container's IP after every single
+`up -d`, but a reload after `up -d` costs nothing and closes the gap
+completely — treat it as a fixed part of every deploy, not a doubt to
+resolve.)
 
 ---
 
@@ -206,28 +244,67 @@ Rebuilds and recreates only the services whose image actually changed.
 (`carlosmiguelhub/CodeForge`) in the Vercel dashboard, then:
 
 - **Root Directory**: `apps/web`
-- **Framework Preset**: Next.js (auto-detected)
-- **Build/Install commands**: leave the defaults — Vercel detects the npm
-  workspaces monorepo from the root `package-lock.json` and installs from
-  the repo root automatically once Root Directory is set.
+- **Framework Preset**: Next.js (auto-detected once Root Directory is set
+  correctly — Vercel's own guess before you set it has been wrong here,
+  defaulting to a random `apps/*` backend service and a "Fastify" preset).
+- **Install Command**: override the default. Vercel's build environment
+  installs with devDependencies stripped (same as `NODE_ENV=production
+  npm install` anywhere), but `next build` type-checks test files too,
+  and those import `vitest`/`@testing-library/react`/`axe-core` — all
+  root-level devDependencies. The build fails with a wall of
+  `Cannot find module` `TS2307` errors otherwise. Set it to:
+  ```
+  npm install --prefix=../.. --include=dev
+  ```
+  (keep the `--prefix=../..` — that's what installs from the monorepo
+  root correctly; `--include=dev` is the only addition needed.)
 - **Environment variables** (Project Settings → Environment Variables —
   the `NEXT_PUBLIC_*` ones are baked into the client bundle at *build*
   time, so set them before the first deploy, not after):
   - `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`,
-    `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`,
-    `NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY` — from the Firebase Console,
-    same project the VPS's service account belongs to.
-  - `NEXT_PUBLIC_PLATFORM_API_URL` → `https://api.example.com` (step 7's
+    `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID` —
+    from Firebase Console → Project Settings → General → "Your apps" →
+    the Web app's SDK config snippet. (The API key here is meant to be
+    public, unlike the service account key from step 2 — no need to
+    treat it as a secret.)
+  - `NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY` — **not optional**, even
+    though the frontend code degrades gracefully without it
+    (`firebase-client.ts` just sets `appCheck: null`). The backend does
+    not degrade: `packages/auth/src/identity-service.ts`'s
+    `verifyAppCheck` throws a 403 on every single route if the
+    `X-Firebase-AppCheck` header is missing. Skipping this env var means
+    the whole site loads but nothing works. Get it from **Firebase
+    Console → App Check → your Web app → Register → reCAPTCHA
+    Enterprise** (not the plain "reCAPTCHA" option below it — the code
+    specifically uses `ReCaptchaEnterpriseProvider`), which needs a key
+    created first at **Google Cloud Console → Security → reCAPTCHA
+    Enterprise → Keys → Create key** (Website type, add your Vercel
+    domain(s) to its domain list). Free for the first 10,000
+    assessments/month, no billing account needed to create the key.
+  - `NEXT_PUBLIC_PLATFORM_API_URL` → `https://api.<your-domain>` (step 7's
     domain, once it exists — until then this can point at
     `http://<vps-ip>` and API calls just won't work over HTTPS yet; the
     rest of the site still deploys and renders fine).
-  - `NEXT_PUBLIC_EXECUTION_API_URL` → `https://exec.example.com`
-  - `NEXT_PUBLIC_INTERACTIVE_RUN_API_URL` → `wss://run.example.com` (note
-    `wss://`, not `https://` — this one's a WebSocket base URL).
+  - `NEXT_PUBLIC_EXECUTION_API_URL` → `https://exec.<your-domain>`
+  - `NEXT_PUBLIC_INTERACTIVE_RUN_API_URL` → `wss://run.<your-domain>`
+    (note `wss://`, not `https://` — this one's a WebSocket base URL).
   - Leave `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL` and
     `NEXT_PUBLIC_LOCAL_APP_CHECK_TOKEN` unset — those are local-dev-only
     bypasses.
 
 Once deployed, copy the real `https://<project>.vercel.app` URL into the
-VPS's `SQWEB_ALLOWED_ORIGINS` (step 3) and restart `platform-api` — CORS
-will reject the frontend's requests until that round-trip is done.
+VPS's `SQWEB_ALLOWED_ORIGINS` (step 3) — **and into the reCAPTCHA
+Enterprise key's domain list above too**, or App Check silently fails
+with `appCheck/recaptcha-error` for that origin — then redeploy the two
+affected containers:
+
+```bash
+docker compose -f infrastructure/vps/docker-compose.prod.yml --env-file infrastructure/vps/.env.prod up -d
+docker compose -f infrastructure/vps/docker-compose.prod.yml exec nginx nginx -s reload
+```
+
+(Both `platform-api` and `execution-api` read `SQWEB_ALLOWED_ORIGINS` —
+this recreates whichever ones actually changed. The nginx reload is the
+same not-optional step from "Redeploying after a code change" above —
+skip it and one of the two can keep 502ing through nginx even though the
+container itself is healthy.)
