@@ -148,8 +148,21 @@ services:
     env_file: .env.prod
     environment:
       PORT: 8084
+      # This process talks to the HOST's Docker daemon over the mounted
+      # socket below (Docker-outside-of-Docker) to spawn each run's
+      # sandbox container. It writes the student's source file to
+      # INTERACTIVE_RUN_TMP_DIR (its own container path, used for real
+      # fs calls) then tells the daemon to bind-mount
+      # INTERACTIVE_RUN_HOST_TMP_DIR (the same directory's path as the
+      # HOST sees it, from .env.prod — must match the ./interactive-run-tmp
+      # bind below resolved against wherever this repo is actually cloned)
+      # into the spawned container. Get either half wrong and the spawned
+      # container's /workspace/src is silently empty — see
+      # interactive-runner.ts's DockerInteractiveRunManagerOptions comment.
+      INTERACTIVE_RUN_TMP_DIR: /tmp/interactive-runs
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./interactive-run-tmp:/tmp/interactive-runs
     networks: [codeforge]
 
   nginx:

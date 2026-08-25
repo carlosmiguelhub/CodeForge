@@ -39,7 +39,25 @@ const environment = z
       .int()
       .positive()
       .default(3),
+    // Only needed when this process itself runs inside a container talking
+    // to the HOST's Docker daemon over a mounted socket (Docker-outside-
+    // of-Docker) — see interactive-runner.ts's DockerInteractiveRunManagerOptions
+    // comment for why the container-vs-host path split matters. Leave both
+    // unset for local dev, where this process runs directly on the host.
+    INTERACTIVE_RUN_TMP_DIR: z.string().min(1).optional(),
+    INTERACTIVE_RUN_HOST_TMP_DIR: z.string().min(1).optional(),
     PORT: z.coerce.number().int().positive().max(65_535).default(8084),
+  })
+  .superRefine((value, context) => {
+    if (
+      Boolean(value.INTERACTIVE_RUN_TMP_DIR) !==
+      Boolean(value.INTERACTIVE_RUN_HOST_TMP_DIR)
+    )
+      context.addIssue({
+        code: "custom",
+        message:
+          "INTERACTIVE_RUN_TMP_DIR and INTERACTIVE_RUN_HOST_TMP_DIR must be set together, or not at all.",
+      });
   })
   .parse(process.env);
 
@@ -48,6 +66,12 @@ const runs = new DockerInteractiveRunManager(
     imageTag: environment.CODE_RUNTIME_IMAGE_TAG,
     memoryLimitMb: environment.INTERACTIVE_RUN_MEMORY_LIMIT_MB,
     cpuLimit: environment.INTERACTIVE_RUN_CPU_LIMIT,
+    ...(environment.INTERACTIVE_RUN_TMP_DIR
+      ? { tmpDir: environment.INTERACTIVE_RUN_TMP_DIR }
+      : {}),
+    ...(environment.INTERACTIVE_RUN_HOST_TMP_DIR
+      ? { hostTmpDir: environment.INTERACTIVE_RUN_HOST_TMP_DIR }
+      : {}),
   },
   new Docker(),
 );

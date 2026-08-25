@@ -1,7 +1,10 @@
 import { PassThrough } from "node:stream";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import Docker from "dockerode";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DockerInteractiveRunManager } from "./interactive-runner";
 
@@ -69,6 +72,64 @@ describe("DockerInteractiveRunManager", () => {
     release();
     await expect(session.wait()).resolves.toBe(0);
     expect(container.remove).toHaveBeenCalledWith({ force: true });
+  });
+
+  const createdBaseDirs: string[] = [];
+  afterEach(async () => {
+    await Promise.all(
+      createdBaseDirs
+        .splice(0)
+        .map((dir) => rm(dir, { recursive: true, force: true })),
+    );
+  });
+
+  it("binds the HOST-visible path, not this process's own container path, when running Docker-outside-of-Docker", async () => {
+    // tmpDir must be real — the manager actually mkdtemp/writeFile's into
+    // it. hostTmpDir does not need to exist — nothing in start() reads or
+    // writes through it, it only appears in the Binds string, exactly the
+    // string dockerode would hand to the HOST daemon in production.
+    const tmpDir = await mkdtemp(join(tmpdir(), "sqweb-runner-test-"));
+    createdBaseDirs.push(tmpDir);
+    const hostTmpDir = "/host/interactive-run-tmp";
+
+    const attached = new PassThrough();
+    const container = {
+      attach: vi.fn(async () => attached),
+      start: vi.fn(async () => undefined),
+      wait: vi.fn(async () => {
+        attached.end();
+        return { StatusCode: 0 };
+      }),
+      stop: vi.fn(async () => undefined),
+      remove: vi.fn(async () => undefined),
+    };
+    const createContainer = vi.fn(async () => container);
+    const docker = {
+      createContainer,
+      modem: { demuxStream: vi.fn() },
+    } as unknown as Docker;
+    const manager = new DockerInteractiveRunManager(
+      { imageTag: "sqweb/code-runtime:test", memoryLimitMb: 512, cpuLimit: "1000m", tmpDir, hostTmpDir },
+      docker,
+    );
+
+    const session = await manager.start({
+      language: "python",
+      sourceCode: "print('hi')",
+      onStdout: vi.fn(),
+      onStderr: vi.fn(),
+    });
+
+    const [[createArgs]] = createContainer.mock.calls;
+    const [bind] = (
+      createArgs as { HostConfig: { Binds: string[] } }
+    ).HostConfig.Binds;
+    expect(bind).toMatch(/^\/host\/interactive-run-tmp\/sqweb-interactive-run-.+:\/workspace\/src:ro$/);
+    // ...and never the container-internal tmpDir this process actually
+    // wrote the file into — that path means nothing to the host daemon.
+    expect(bind.startsWith(tmpDir)).toBe(false);
+
+    await expect(session.wait()).resolves.toBe(0);
   });
 
   it("removes labeled containers older than the orphan cutoff", async () => {

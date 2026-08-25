@@ -13,6 +13,13 @@ No domain is assumed to exist yet — this runbook gets everything running
 over plain HTTP on the VPS's bare IP first, with the TLS/domain step
 clearly marked as a later addition once you have one.
 
+**That said, don't put this off indefinitely if Vercel is also part of
+your plan**: Vercel always serves over HTTPS, and browsers block an
+HTTPS page from calling a plain-HTTP API (mixed content) — not a config
+toggle, built into every modern browser. The frontend will load fine
+without step 7 done, but every SQL/code/API call will silently fail
+until the backend has real TLS too.
+
 ## 1. One-time VPS setup
 
 SSH in as root (or a sudo user), then:
@@ -61,14 +68,26 @@ openssl rand -hex 32      # → SQWEB_EXECUTION_GRANT_SECRET
 ```
 
 `SQWEB_DEFAULT_INSTITUTION_ID` and `WORKSPACE_POOL_INSTANCE_ID` are just
-UUIDs you pick now and reuse in step 5 — `node -e "console.log(crypto.randomUUID())"`
-for each.
+UUIDs you pick now and reuse in step 5 — `cat /proc/sys/kernel/random/uuid`
+for each (no need for `node`/`uuidgen`/anything extra — this is a fresh
+box with only Docker installed, and this is a real file the kernel
+answers freshly on every read).
+
+`INTERACTIVE_RUN_HOST_TMP_DIR` — see its comment in `.env.prod.example`.
+Create the directory it points at now, since `interactive-run-api` won't:
+
+```bash
+mkdir -p /root/CodeForge/infrastructure/vps/interactive-run-tmp
+```
 
 `SQWEB_ALLOWED_ORIGINS` needs your real Vercel URL (e.g.
 `https://codeforge.vercel.app`) — set that up first (see the Vercel
 section below) if you don't have it yet, or come back and fill this in
-once you do; the platform-api container needs a restart after changing it
-(`docker compose ... restart platform-api`), not a full rebuild.
+once you do. Changing anything in `.env.prod` needs `up -d` run again
+(below), **not** `docker compose restart` — restart only restarts the
+existing container with whatever env it already has baked in; it does not
+re-read `env_file`. Only `up -d` notices the config changed and recreates
+the container with the new value.
 
 ## 4. Build the interactive-run-api runtime image
 
@@ -125,6 +144,26 @@ Fix it once, right after the first `up -d --build`:
 ```bash
 chown -R 999:999 infrastructure/vps/workspace-secrets
 ```
+
+### Verify the interactive-run-api Docker-outside-of-Docker path split
+
+`interactive-run-api` writes each student's source file, then tells the
+**host's** Docker daemon (over the mounted socket) to bind-mount that path
+into the sandbox container it spawns. Since `interactive-run-api` is
+itself containerized, a plain temp-dir path only means something inside
+its own container — the host daemon would resolve it against the wrong
+filesystem entirely and silently mount an empty directory instead (see
+`interactive-runner.ts`'s `DockerInteractiveRunManagerOptions` comment for
+the full mechanics). `INTERACTIVE_RUN_TMP_DIR`/`INTERACTIVE_RUN_HOST_TMP_DIR`
+(set in step 3) and the `./interactive-run-tmp` bind mount in
+`docker-compose.prod.yml` exist specifically to route around this — as
+long as `INTERACTIVE_RUN_HOST_TMP_DIR` in `.env.prod` genuinely matches
+where you cloned the repo, this should already work with no extra step.
+Confirm with a real Code Workspace "Run" click once the frontend's up
+(step 8 for Vercel); if it fails with `Cannot find module
+'/workspace/src/main.js'` (or the equivalent for another language),
+`INTERACTIVE_RUN_HOST_TMP_DIR` doesn't match the real clone path — fix it
+in `.env.prod` and `up -d` again (not just `restart`, see step 3).
 
 ### Seed the institution, workspace pool row, and at least one section
 

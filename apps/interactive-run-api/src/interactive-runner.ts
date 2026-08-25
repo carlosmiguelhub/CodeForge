@@ -2,7 +2,14 @@ import { PassThrough } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import {
+  basename,
+  isAbsolute,
+  join,
+  posix,
+  relative,
+  resolve,
+} from "node:path";
 
 import type { CodeLanguage } from "@sqweb/contracts";
 import Docker from "dockerode";
@@ -46,6 +53,20 @@ export interface DockerInteractiveRunManagerOptions {
   readonly imageTag: string;
   readonly memoryLimitMb: number;
   readonly cpuLimit: string;
+  // Base directory (as seen by THIS process's own filesystem) under which
+  // per-run source directories are created. Defaults to the OS temp dir —
+  // correct for local dev, where this process runs directly on the host.
+  readonly tmpDir?: string;
+  // The HOST's view of that same directory, used only when constructing a
+  // spawned container's Binds source. In production this process itself
+  // runs in a container that talks to the HOST's Docker daemon over a
+  // mounted socket (Docker-outside-of-Docker) — dockerode's bind-mount
+  // source paths are resolved by that HOST daemon against the HOST
+  // filesystem, not this container's own, so a plain tmpDir path here
+  // would silently bind-mount an empty directory into the spawned
+  // container instead of the real source file. Defaults to tmpDir itself,
+  // correct whenever this process is NOT itself containerized.
+  readonly hostTmpDir?: string;
 }
 
 export class DockerInteractiveRunManager implements InteractiveRunManager {
@@ -54,8 +75,23 @@ export class DockerInteractiveRunManager implements InteractiveRunManager {
     private readonly docker: Docker = new Docker(),
   ) {}
 
+  // Swaps the tmpDir prefix for hostTmpDir, only when both are configured
+  // and differ — a no-op (identity) whenever this process isn't itself
+  // containerized, which is the only case where the two paths could ever
+  // legitimately diverge.
+  private hostPathFor(containerPath: string): string {
+    const { tmpDir, hostTmpDir } = this.options;
+    if (!hostTmpDir || !tmpDir || hostTmpDir === tmpDir) return containerPath;
+    // hostTmpDir names a path on the HOST daemon's filesystem, which is
+    // always Linux in this deployment regardless of what OS this process
+    // itself runs under (e.g. a Windows machine in local dev) — posix.join,
+    // not the platform-native join, so the result is never backslashed.
+    return posix.join(hostTmpDir, relative(tmpDir, containerPath));
+  }
+
   async start(spec: InteractiveRunSpec): Promise<InteractiveRunSession> {
-    const sourceDir = await mkdtemp(join(tmpdir(), "sqweb-interactive-run-"));
+    const baseDir = this.options.tmpDir ?? tmpdir();
+    const sourceDir = await mkdtemp(join(baseDir, "sqweb-interactive-run-"));
     let container: Docker.Container | undefined;
     let attached: NodeJS.ReadWriteStream | undefined;
     try {
@@ -74,7 +110,7 @@ export class DockerInteractiveRunManager implements InteractiveRunManager {
           "sqweb.interactive-run": "true",
         },
         HostConfig: {
-          Binds: [`${sourceDir}:/workspace/src:ro`],
+          Binds: [`${this.hostPathFor(sourceDir)}:/workspace/src:ro`],
           Memory: this.options.memoryLimitMb * 1024 * 1024,
           NanoCpus: cpuLimitToNanoCpus(this.options.cpuLimit),
           PidsLimit: 128,
@@ -217,17 +253,30 @@ export class DockerInteractiveRunManager implements InteractiveRunManager {
           // The container may disappear between list and inspect.
         }
         await handle.remove({ force: true }).catch(() => undefined);
+        // sourceDir here is whatever was actually passed as the Binds
+        // source — the HOST-visible path when hostTmpDir is configured —
+        // but this process can only rm() a path within its OWN
+        // filesystem, so translate it back before deleting.
         if (sourceDir && this.isOwnedTempDirectory(sourceDir))
-          await rm(sourceDir, { recursive: true, force: true }).catch(
-            () => undefined,
-          );
+          await rm(this.containerPathFor(sourceDir), {
+            recursive: true,
+            force: true,
+          }).catch(() => undefined);
       }),
     );
     return stale.length;
   }
 
+  // Inverse of hostPathFor — same no-op-when-unconfigured behavior. hostPath
+  // is always POSIX (see hostPathFor's comment), so posix.relative here too.
+  private containerPathFor(hostPath: string): string {
+    const { tmpDir, hostTmpDir } = this.options;
+    if (!hostTmpDir || !tmpDir || hostTmpDir === tmpDir) return hostPath;
+    return join(tmpDir, posix.relative(hostTmpDir, hostPath));
+  }
+
   private isOwnedTempDirectory(path: string): boolean {
-    const tempRoot = resolve(tmpdir());
+    const tempRoot = resolve(this.options.hostTmpDir ?? this.options.tmpDir ?? tmpdir());
     const candidate = resolve(path);
     const pathWithinTemp = relative(tempRoot, candidate);
     return (
