@@ -120,14 +120,20 @@ describe("DockerInteractiveRunManager", () => {
       onStderr: vi.fn(),
     });
 
-    const [[createArgs]] = createContainer.mock.calls;
-    const [bind] = (
-      createArgs as { HostConfig: { Binds: string[] } }
-    ).HostConfig.Binds;
-    expect(bind).toMatch(/^\/host\/interactive-run-tmp\/sqweb-interactive-run-.+:\/workspace\/src:ro$/);
-    // ...and never the container-internal tmpDir this process actually
-    // wrote the file into — that path means nothing to the host daemon.
-    expect(bind.startsWith(tmpDir)).toBe(false);
+    // Anchored to the HOST-visible prefix specifically — this also proves
+    // it's NOT the container-internal tmpDir this process actually wrote
+    // the file into, which would fail to match this pattern at all.
+    expect(createContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        HostConfig: expect.objectContaining({
+          Binds: [
+            expect.stringMatching(
+              /^\/host\/interactive-run-tmp\/sqweb-interactive-run-.+:\/workspace\/src:ro$/,
+            ),
+          ],
+        }),
+      }),
+    );
 
     await expect(session.wait()).resolves.toBe(0);
   });

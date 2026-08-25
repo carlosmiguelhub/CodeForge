@@ -1,6 +1,6 @@
 import { PassThrough } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import {
   basename,
@@ -92,13 +92,24 @@ export class DockerInteractiveRunManager implements InteractiveRunManager {
   async start(spec: InteractiveRunSpec): Promise<InteractiveRunSession> {
     const baseDir = this.options.tmpDir ?? tmpdir();
     const sourceDir = await mkdtemp(join(baseDir, "sqweb-interactive-run-"));
+    // mkdtemp defaults to mode 0700 (owner-only). This process runs as
+    // root (needed for Docker socket access), but the code it writes here
+    // gets read by the sandbox container's non-root user (10001) — without
+    // this, that user can't even traverse into the directory to reach the
+    // file, regardless of the file's own mode. The mount is already `:ro`
+    // into the sandbox, so a more permissive directory mode here doesn't
+    // weaken that boundary.
+    await chmod(sourceDir, 0o755);
     let container: Docker.Container | undefined;
     let attached: NodeJS.ReadWriteStream | undefined;
     try {
       await writeFile(
         join(sourceDir, entryFileByLanguage[spec.language]),
         spec.sourceCode,
-        "utf8",
+        // Explicit mode, not just relying on umask defaults — same reason
+        // as the chmod above, the sandbox's non-root user (10001) needs to
+        // be able to read this even though it's owned by root.
+        { encoding: "utf8", mode: 0o644 },
       );
       container = await this.docker.createContainer({
         Image: this.options.imageTag,
