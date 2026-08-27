@@ -2,7 +2,7 @@
 
 import { Lock, Mail } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useEffect, useRef, useState } from "react";
+import { type FormEvent, Suspense, useEffect, useState } from "react";
 
 import { IdentityFrame } from "@/components/auth/identity-frame";
 import { IdentityStatus } from "@/components/auth/identity-status";
@@ -15,10 +15,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
-  const formRef = useRef<HTMLFormElement>(null);
   const [busy, setBusy] = useState(false);
-  const [resendBusy, setResendBusy] = useState(false);
-  const [resendSent, setResendSent] = useState(false);
   const alreadySignedIn =
     auth.state !== "initializing" &&
     auth.state !== "unavailable" &&
@@ -58,24 +55,6 @@ function LoginForm() {
     }
   }
 
-  async function resend() {
-    if (!formRef.current) return;
-    const form = new FormData(formRef.current);
-    setResendBusy(true);
-    setResendSent(false);
-    try {
-      await auth.resendVerificationWithCredentials(
-        String(form.get("email")),
-        String(form.get("password")),
-      );
-      setResendSent(true);
-    } catch {
-      // AuthProvider exposes a safe user-facing error message.
-    } finally {
-      setResendBusy(false);
-    }
-  }
-
   if (alreadySignedIn)
     return (
       <IdentityFrame
@@ -102,11 +81,6 @@ function LoginForm() {
             in below.
           </IdentityStatus>
         ) : null}
-        {resendSent ? (
-          <IdentityStatus tone="success">
-            Verification email sent. Check your inbox, then sign in.
-          </IdentityStatus>
-        ) : null}
         {auth.state === "unavailable" ? (
           <IdentityStatus tone="error">
             Firebase and the platform API are not configured. Copy
@@ -117,7 +91,6 @@ function LoginForm() {
           <IdentityStatus tone="error">{auth.error}</IdentityStatus>
         ) : null}
         <form
-          ref={formRef}
           method="post"
           className="space-y-4"
           onSubmit={(event) => void submit(event)}
@@ -154,17 +127,11 @@ function LoginForm() {
             {busy ? <Spinner size={16} /> : null}
             {busy ? "Signing in…" : "Sign in"}
           </button>
-          <button
-            type="button"
-            disabled={resendBusy || auth.state === "unavailable"}
-            onClick={() => void resend()}
-            className="text-action-soft w-full text-center text-xs underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {resendBusy
-              ? "Sending verification email…"
-              : "Didn't get a verification email? Resend it"}
-          </button>
         </form>
+        <p className="text-ink-muted text-center text-xs">
+          Haven&rsquo;t verified your email yet? Sign in above and
+          you&rsquo;ll be prompted to resend the link.
+        </p>
         <p className="text-ink-muted text-center text-xs">
           Need an account?{" "}
           <a

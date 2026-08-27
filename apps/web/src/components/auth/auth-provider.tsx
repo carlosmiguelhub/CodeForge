@@ -62,13 +62,12 @@ interface AuthContextValue {
     displayName: string,
   ): Promise<void>;
   resendVerification(): Promise<void>;
-  resendVerificationWithCredentials(
-    email: string,
-    password: string,
-  ): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
   updateDisplayName(displayName: string): Promise<void>;
-  reloadIdentity(): Promise<void>;
+  // Resolves to whether the reloaded user is now email-verified, so a
+  // caller can tell "verification succeeded" apart from "still pending"
+  // without racing this render's stale `state`/`user` closure values.
+  reloadIdentity(): Promise<boolean>;
   completeRegistration(
     displayName: string,
     requestedRole: RequestedRegistrationRole,
@@ -458,30 +457,6 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         throw new Error("Authentication is required.");
       await sendEmailVerification(services.auth.currentUser);
     },
-    async resendVerificationWithCredentials(email, password) {
-      if (!services) throw new Error("Firebase is not configured.");
-      setError(null);
-      try {
-        const credential = await signInWithEmailAndPassword(
-          services.auth,
-          email,
-          password,
-        );
-        if (credential.user.emailVerified) {
-          throw new Error("This email is already verified. Sign in below.");
-        }
-        await sendEmailVerification(credential.user);
-      } catch (resendError) {
-        const message =
-          resendError instanceof Error &&
-          resendError.message ===
-            "This email is already verified. Sign in below."
-            ? resendError.message
-            : safeIdentityMessage(resendError);
-        setError(message);
-        throw new Error(message);
-      }
-    },
     async sendPasswordReset(email) {
       if (!services) throw new Error("Firebase is not configured.");
       setError(null);
@@ -522,9 +497,10 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       }
     },
     async reloadIdentity() {
-      if (!services?.auth.currentUser) return;
+      if (!services?.auth.currentUser) return false;
       await reload(services.auth.currentUser);
       await synchronize(services.auth.currentUser);
+      return services.auth.currentUser.emailVerified;
     },
     async completeRegistration(displayName, requestedRole, sectionId) {
       setError(null);

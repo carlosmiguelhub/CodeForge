@@ -11,14 +11,30 @@ import { Spinner } from "@/components/ui/spinner";
 export default function VerifyEmailPage() {
   const auth = useAuth();
   const router = useRouter();
-  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function check() {
     setBusy(true);
+    setStatus(null);
     try {
-      await auth.reloadIdentity();
-      router.push("/continue");
+      const verified = await auth.reloadIdentity();
+      if (verified) {
+        router.push("/continue");
+      } else {
+        setStatus({
+          tone: "error",
+          text: "Your email isn't verified yet. Open the link we sent you, then try again.",
+        });
+      }
+    } catch {
+      setStatus({
+        tone: "error",
+        text: "Could not check your verification status. Try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -26,9 +42,18 @@ export default function VerifyEmailPage() {
 
   async function resend() {
     setBusy(true);
+    setStatus(null);
     try {
       await auth.resendVerification();
-      setMessage("A new verification email was sent.");
+      setStatus({
+        tone: "success",
+        text: "A new verification email was sent.",
+      });
+    } catch {
+      setStatus({
+        tone: "error",
+        text: "Could not resend the verification email. Wait a moment and try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -41,8 +66,8 @@ export default function VerifyEmailPage() {
       description={`Open the verification link sent to ${auth.user?.email ?? "your email address"}, then return here.`}
     >
       <div className="space-y-3">
-        {message ? (
-          <IdentityStatus tone="success">{message}</IdentityStatus>
+        {status ? (
+          <IdentityStatus tone={status.tone}>{status.text}</IdentityStatus>
         ) : null}
         <button
           type="button"
