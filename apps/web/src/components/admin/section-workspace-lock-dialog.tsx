@@ -46,8 +46,10 @@ export function SectionWorkspaceLockDialog({
     try {
       const response = await authorizedFetch(
         `/v1/admin/sections/${section.id}/locked-workspaces`,
-        { method: "PATCH", body: JSON.stringify({ lockedWorkspaces: locked }) },
-        true,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ lockedWorkspaces: locked }),
+        },
       );
       if (!response.ok) throw new Error("Workspace access could not be saved.");
       onSaved(sectionSchema.parse(await response.json()));

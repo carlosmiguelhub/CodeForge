@@ -306,20 +306,6 @@ resolve.)
     the Web app's SDK config snippet. (The API key here is meant to be
     public, unlike the service account key from step 2 — no need to
     treat it as a secret.)
-  - `NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY` — **not optional**, even
-    though the frontend code degrades gracefully without it
-    (`firebase-client.ts` just sets `appCheck: null`). The backend does
-    not degrade: `packages/auth/src/identity-service.ts`'s
-    `verifyAppCheck` throws a 403 on every single route if the
-    `X-Firebase-AppCheck` header is missing. Skipping this env var means
-    the whole site loads but nothing works. Get it from **Firebase
-    Console → App Check → your Web app → Register → reCAPTCHA
-    Enterprise** (not the plain "reCAPTCHA" option below it — the code
-    specifically uses `ReCaptchaEnterpriseProvider`), which needs a key
-    created first at **Google Cloud Console → Security → reCAPTCHA
-    Enterprise → Keys → Create key** (Website type, add your Vercel
-    domain(s) to its domain list). Free for the first 10,000
-    assessments/month, no billing account needed to create the key.
   - `NEXT_PUBLIC_PLATFORM_API_URL` → `https://api.<your-domain>` (step 7's
     domain, once it exists — until then this can point at
     `http://<vps-ip>` and API calls just won't work over HTTPS yet; the
@@ -327,15 +313,12 @@ resolve.)
   - `NEXT_PUBLIC_EXECUTION_API_URL` → `https://exec.<your-domain>`
   - `NEXT_PUBLIC_INTERACTIVE_RUN_API_URL` → `wss://run.<your-domain>`
     (note `wss://`, not `https://` — this one's a WebSocket base URL).
-  - Leave `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL` and
-    `NEXT_PUBLIC_LOCAL_APP_CHECK_TOKEN` unset — those are local-dev-only
-    bypasses.
+  - Leave `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL` unset — that's a
+    local-dev-only bypass.
 
 Once deployed, copy the real `https://<project>.vercel.app` URL into the
-VPS's `SQWEB_ALLOWED_ORIGINS` (step 3) — **and into the reCAPTCHA
-Enterprise key's domain list above too**, or App Check silently fails
-with `appCheck/recaptcha-error` for that origin — then redeploy the two
-affected containers:
+VPS's `SQWEB_ALLOWED_ORIGINS` (step 3) — then redeploy the two affected
+containers:
 
 ```bash
 docker compose -f infrastructure/vps/docker-compose.prod.yml --env-file infrastructure/vps/.env.prod up -d

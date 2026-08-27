@@ -1,15 +1,8 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import {
-  getToken,
-  initializeAppCheck,
-  ReCaptchaEnterpriseProvider,
-  type AppCheck,
-} from "firebase/app-check";
 import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
 
 export interface FirebaseClientServices {
   readonly auth: Auth;
-  readonly appCheck: AppCheck | null;
 }
 
 let services: FirebaseClientServices | null | undefined;
@@ -22,7 +15,6 @@ export function getFirebaseClientServices(): FirebaseClientServices | null {
   const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
-  const siteKey = process.env.NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY;
 
   if (!apiKey || !authDomain || !projectId || !appId) {
     services = null;
@@ -36,19 +28,6 @@ export function getFirebaseClientServices(): FirebaseClientServices | null {
   if (authEmulatorUrl && !auth.emulatorConfig) {
     connectAuthEmulator(auth, authEmulatorUrl, { disableWarnings: true });
   }
-  services = {
-    auth,
-    appCheck: siteKey
-      ? initializeAppCheck(app, {
-          provider: new ReCaptchaEnterpriseProvider(siteKey),
-          isTokenAutoRefreshEnabled: true,
-        })
-      : null,
-  };
+  services = { auth };
   return services;
-}
-
-export async function getAppCheckHeader(appCheck: AppCheck): Promise<string> {
-  const result = await getToken(appCheck, false);
-  return result.token;
 }

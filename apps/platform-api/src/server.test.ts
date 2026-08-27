@@ -237,11 +237,6 @@ async function setup(actor?: AccountProfile) {
         emailVerified: true,
       })),
     },
-    appCheck: {
-      verifyToken: vi.fn(async (token) => {
-        if (token !== "valid-app") throw new Error("invalid");
-      }),
-    },
     claims: { writeClaims: vi.fn().mockResolvedValue(undefined) },
     audit: { record: vi.fn().mockResolvedValue(undefined) },
     provisioner: {
@@ -553,7 +548,6 @@ describe("platform identity API", () => {
       url: "/v1/registrations",
       headers: {
         authorization: "Bearer new-teacher",
-        "x-firebase-appcheck": "valid-app",
         origin: "http://localhost:3000",
       },
       payload: { displayName: "New Teacher", requestedRole: "teacher" },
@@ -565,17 +559,6 @@ describe("platform identity API", () => {
     });
   });
 
-  it("requires App Check for registration", async () => {
-    const { server } = await setup();
-    const response = await server.inject({
-      method: "POST",
-      url: "/v1/registrations",
-      headers: { authorization: "Bearer new-student" },
-      payload: { displayName: "New Student", requestedRole: "student" },
-    });
-    expect(response.statusCode).toBe(403);
-  });
-
   it("requires a section when self-registering as a student", async () => {
     const { server } = await setup();
     const response = await server.inject({
@@ -583,7 +566,6 @@ describe("platform identity API", () => {
       url: "/v1/registrations",
       headers: {
         authorization: "Bearer new-student",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { displayName: "New Student", requestedRole: "student" },
     });
@@ -601,7 +583,6 @@ describe("platform identity API", () => {
       url: "/v1/registrations",
       headers: {
         authorization: "Bearer new-student",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: {
         displayName: "New Student",
@@ -613,7 +594,7 @@ describe("platform identity API", () => {
     expect(response.json()).toMatchObject({ status: "active", sectionId });
   });
 
-  it("requires administrator role and App Check to list accounts", async () => {
+  it("requires administrator role to list accounts", async () => {
     const administrator: AccountProfile = {
       id: crypto.randomUUID(),
       firebaseUid: "admin",
@@ -637,20 +618,10 @@ describe("platform identity API", () => {
       requestedRole: "teacher",
     });
 
-    const missingAppCheck = await server.inject({
-      method: "GET",
-      url: "/v1/admin/users?status=pending_approval",
-      headers: { authorization: "Bearer admin" },
-    });
-    expect(missingAppCheck.statusCode).toBe(403);
-
     const response = await server.inject({
       method: "GET",
       url: "/v1/admin/users?status=pending_approval",
-      headers: {
-        authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
-      },
+      headers: { authorization: "Bearer admin" },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
@@ -707,7 +678,6 @@ describe("platform identity API", () => {
       url: `/v1/admin/users?sectionId=${sectionId}`,
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(200);
@@ -747,7 +717,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users?page=1&pageSize=2",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(200);
@@ -775,7 +744,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: {
         email: "new-teacher@example.edu",
@@ -821,7 +789,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-x/roles",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { role: "teacher" },
     });
@@ -835,7 +802,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-x/roles/student",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(remove.statusCode).toBe(200);
@@ -872,7 +838,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-section/section",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { sectionId },
     });
@@ -914,7 +879,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-unassign/section",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { sectionId: null },
     });
@@ -940,7 +904,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/someone/section",
       headers: {
         authorization: "Bearer teacher",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { sectionId: null },
     });
@@ -976,7 +939,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-y/roles/student",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(400);
@@ -1011,7 +973,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-z/reset-password",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(204);
@@ -1051,7 +1012,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-delete",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(204);
@@ -1067,7 +1027,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-delete",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(followUp.statusCode).toBe(404);
@@ -1091,7 +1050,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/admin",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(400);
@@ -1115,7 +1073,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/someone-else",
       headers: {
         authorization: "Bearer teacher",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(403);
@@ -1150,7 +1107,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/student-pw/set-password",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { password: "New-Passw0rd!" },
     });
@@ -1182,7 +1138,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/someone/set-password",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { password: "short" },
     });
@@ -1207,7 +1162,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/someone/set-password",
       headers: {
         authorization: "Bearer teacher",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { password: "New-Passw0rd!" },
     });
@@ -1232,7 +1186,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/ghost-uid",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(404);
@@ -1267,7 +1220,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/dashboard",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(200);
@@ -1319,7 +1271,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/audit-events",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(200);
@@ -1354,7 +1305,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/target/status",
       headers: {
         authorization: "Bearer teacher",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { status: "active", reason: "Approved for teaching" },
     });
@@ -1390,7 +1340,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/target/status",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: {
         status: "active",
@@ -1433,7 +1382,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users/target-suspend/status",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { status: "suspended", reason: "Violated the honor code" },
     });
@@ -1443,18 +1391,11 @@ describe("platform identity API", () => {
     );
   });
 
-  it("reports system status publicly, with only App Check required", async () => {
+  it("reports system status publicly", async () => {
     const { server } = await setup();
-    const missingAppCheck = await server.inject({
-      method: "GET",
-      url: "/v1/system/status",
-    });
-    expect(missingAppCheck.statusCode).toBe(403);
-
     const response = await server.inject({
       method: "GET",
       url: "/v1/system/status",
-      headers: { "x-firebase-appcheck": "valid-app" },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ maintenanceMode: false, message: null });
@@ -1478,7 +1419,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/settings/maintenance",
       headers: {
         authorization: "Bearer teacher-1",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { enabled: true },
     });
@@ -1515,7 +1455,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/settings/maintenance",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { enabled: true, message: "Upgrading the database tonight." },
     });
@@ -1534,7 +1473,7 @@ describe("platform identity API", () => {
     const statusResponse = await server.inject({
       method: "GET",
       url: "/v1/system/status",
-      headers: { "x-firebase-appcheck": "valid-app" },
+      
     });
     expect(statusResponse.json()).toEqual({
       maintenanceMode: true,
@@ -1546,7 +1485,6 @@ describe("platform identity API", () => {
       url: "/v1/workspaces",
       headers: {
         authorization: "Bearer student-maint",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(blockedResponse.statusCode).toBe(503);
@@ -1557,7 +1495,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/users",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(adminStillWorks.statusCode).toBe(200);
@@ -1567,7 +1504,6 @@ describe("platform identity API", () => {
       url: "/v1/admin/settings/maintenance",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { enabled: false, message: "Upgrading the database tonight." },
     });
@@ -1580,7 +1516,7 @@ describe("platform identity API", () => {
 });
 
 describe("platform section API", () => {
-  it("lists sections publicly, with only App Check required", async () => {
+  it("lists sections publicly", async () => {
     const { server, sectionRepository } = await setup();
     vi.mocked(sectionRepository.listActive).mockResolvedValue([
       {
@@ -1592,16 +1528,9 @@ describe("platform section API", () => {
       },
     ]);
 
-    const missingAppCheck = await server.inject({
-      method: "GET",
-      url: "/v1/sections",
-    });
-    expect(missingAppCheck.statusCode).toBe(403);
-
     const response = await server.inject({
       method: "GET",
       url: "/v1/sections",
-      headers: { "x-firebase-appcheck": "valid-app" },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual([
@@ -1627,7 +1556,6 @@ describe("platform section API", () => {
       url: "/v1/admin/sections",
       headers: {
         authorization: "Bearer teacher",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { name: "BSIT-3A" },
     });
@@ -1652,7 +1580,6 @@ describe("platform section API", () => {
       url: "/v1/admin/sections",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { name: "BSIT-3A" },
     });
@@ -1665,7 +1592,6 @@ describe("platform section API", () => {
       url: `/v1/admin/sections/${sectionId}`,
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(archived.statusCode).toBe(204);
@@ -1695,7 +1621,6 @@ describe("platform section API", () => {
       url: "/v1/admin/sections/00000000-0000-4000-8000-000000000052",
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(400);
@@ -1723,7 +1648,6 @@ describe("platform section API", () => {
       url: `/v1/admin/sections/${sectionId}/restore`,
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(204);
@@ -1751,7 +1675,6 @@ describe("platform section API", () => {
       url: "/v1/admin/sections/00000000-0000-4000-8000-000000000053/restore",
       headers: {
         authorization: "Bearer teacher",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(403);
@@ -1776,7 +1699,6 @@ describe("platform section API", () => {
       url: `/v1/admin/sections/${sectionId}/locked-workspaces`,
       headers: {
         authorization: "Bearer admin",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { lockedWorkspaces: ["sql-workbench"] },
     });
@@ -1809,7 +1731,6 @@ describe("platform section API", () => {
       url: "/v1/admin/sections/00000000-0000-4000-8000-000000000051/locked-workspaces",
       headers: {
         authorization: "Bearer teacher",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { lockedWorkspaces: ["sql-workbench"] },
     });
@@ -1929,7 +1850,7 @@ describe("platform workspace API", () => {
     updatedAt: "2026-08-18T00:00:00.000Z",
   };
 
-  it("accepts an App Check-protected idempotent workspace request", async () => {
+  it("accepts an idempotent workspace request", async () => {
     const { server, workspaceRepository } = await setup(student);
     vi.mocked(workspaceRepository.createRequested).mockResolvedValue(summary);
     const response = await server.inject({
@@ -1937,7 +1858,6 @@ describe("platform workspace API", () => {
       url: "/v1/workspaces",
       headers: {
         authorization: "Bearer workspace-student",
-        "x-firebase-appcheck": "valid-app",
         "idempotency-key": "workspace-request-0001",
       },
       payload: { scope: "personal" },
@@ -1947,20 +1867,6 @@ describe("platform workspace API", () => {
       id: summary.id,
       state: "requested",
     });
-  });
-
-  it("requires App Check for workspace creation", async () => {
-    const { server } = await setup(student);
-    const response = await server.inject({
-      method: "POST",
-      url: "/v1/workspaces",
-      headers: {
-        authorization: "Bearer workspace-student",
-        "idempotency-key": "workspace-request-0001",
-      },
-      payload: { scope: "personal" },
-    });
-    expect(response.statusCode).toBe(403);
   });
 
   it("conceals another owner's workspace", async () => {
@@ -1988,7 +1894,6 @@ describe("platform workspace API", () => {
       url: "/v1/execution-grants",
       headers: {
         authorization: "Bearer workspace-student",
-        "x-firebase-appcheck": "valid-app",
       },
       payload: { workspaceId: summary.id, requestedMode: "interactive" },
     });
@@ -2344,7 +2249,6 @@ describe("platform interactive run grants", () => {
       url: "/v1/interactive-run-grants",
       headers: {
         authorization: "Bearer interactive-student",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(200);
@@ -2377,7 +2281,6 @@ describe("platform interactive run grants", () => {
       url: "/v1/interactive-run-grants",
       headers: {
         authorization: "Bearer interactive-student-locked",
-        "x-firebase-appcheck": "valid-app",
       },
     });
     expect(response.statusCode).toBe(403);

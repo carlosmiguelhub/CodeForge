@@ -464,11 +464,9 @@ export function CodeWorkbench() {
       },
     ]);
     try {
-      const response = await authorizedFetch(
-        "/v1/interactive-run-grants",
-        { method: "POST" },
-        true,
-      );
+      const response = await authorizedFetch("/v1/interactive-run-grants", {
+        method: "POST",
+      });
       if (!response.ok) {
         const parsedError = apiErrorSchema.safeParse(
           await response.json().catch(() => null),

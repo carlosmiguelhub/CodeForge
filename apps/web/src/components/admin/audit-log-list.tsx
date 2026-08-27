@@ -52,8 +52,6 @@ export function AuditLogList() {
         if (action.trim()) query.set("action", action.trim());
         const response = await authorizedFetch(
           `/v1/admin/audit-events?${query.toString()}`,
-          {},
-          true,
         );
         if (!response.ok) throw new Error("Audit events could not be loaded.");
         const parsed = auditEventListResponseSchema.parse(

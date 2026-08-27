@@ -1,6 +1,5 @@
 const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
-const appCheckToken = process.env.SQWEB_LOCAL_APP_CHECK_TOKEN;
-if (!emulatorHost || !appCheckToken)
+if (!emulatorHost)
   throw new Error("Local execution smoke-test settings are required.");
 
 const platformUrl = "http://127.0.0.1:8080";
@@ -29,7 +28,6 @@ function headers(token: string, extra?: Record<string, string>) {
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    "X-Firebase-AppCheck": appCheckToken!,
     ...extra,
   };
 }

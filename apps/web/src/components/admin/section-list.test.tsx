@@ -97,7 +97,6 @@ describe("SectionList", () => {
       expect(mocks.authorizedFetch).toHaveBeenCalledWith(
         "/v1/admin/sections",
         expect.objectContaining({ method: "POST" }),
-        true,
       ),
     );
     expect(await screen.findByText("BSIT-3A")).toBeInTheDocument();
@@ -128,7 +127,6 @@ describe("SectionList", () => {
       expect(mocks.authorizedFetch).toHaveBeenCalledWith(
         `/v1/admin/sections/${activeSection.id}`,
         expect.objectContaining({ method: "DELETE" }),
-        true,
       ),
     );
     expect(await screen.findByText("Removed")).toBeInTheDocument();
@@ -155,7 +153,6 @@ describe("SectionList", () => {
       expect(mocks.authorizedFetch).toHaveBeenCalledWith(
         `/v1/admin/sections/${archivedSection.id}/restore`,
         expect.objectContaining({ method: "POST" }),
-        true,
       ),
     );
     await waitFor(() =>

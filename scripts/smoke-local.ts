@@ -1,7 +1,6 @@
 const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
-const appCheckToken = process.env.SQWEB_LOCAL_APP_CHECK_TOKEN;
-if (!emulatorHost || !appCheckToken) {
-  throw new Error("Local Firebase and App Check settings are required.");
+if (!emulatorHost) {
+  throw new Error("Local Firebase settings are required.");
 }
 
 const apiBaseUrl = "http://127.0.0.1:8080";
@@ -30,16 +29,10 @@ async function signIn(email: string): Promise<string> {
   return payload.idToken;
 }
 
-async function api(
-  token: string,
-  path: string,
-  init: RequestInit = {},
-  useAppCheck = false,
-) {
+async function api(token: string, path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Content-Type", "application/json");
-  if (useAppCheck) headers.set("X-Firebase-AppCheck", appCheckToken!);
   return fetch(`${apiBaseUrl}${path}`, { ...init, headers });
 }
 
@@ -58,15 +51,10 @@ async function main() {
   )?.id;
 
   if (!classId) {
-    const createResponse = await api(
-      teacherToken,
-      "/v1/classes",
-      {
-        method: "POST",
-        body: JSON.stringify({ courseId, termId, section: "LOCAL-SMOKE" }),
-      },
-      true,
-    );
+    const createResponse = await api(teacherToken, "/v1/classes", {
+      method: "POST",
+      body: JSON.stringify({ courseId, termId, section: "LOCAL-SMOKE" }),
+    });
     if (createResponse.status !== 201) {
       throw new Error(
         `Teacher class creation failed (${createResponse.status}).`,
@@ -92,17 +80,14 @@ async function main() {
           usageLimit: 1,
         }),
       },
-      true,
     );
     if (invitationResponse.status !== 201)
       throw new Error("Invitation creation failed.");
     const invitation = (await invitationResponse.json()) as { code: string };
-    const joinResponse = await api(
-      studentToken,
-      `/v1/classes/${classId}/join`,
-      { method: "POST", body: JSON.stringify({ code: invitation.code }) },
-      true,
-    );
+    const joinResponse = await api(studentToken, `/v1/classes/${classId}/join`, {
+      method: "POST",
+      body: JSON.stringify({ code: invitation.code }),
+    });
     if (!joinResponse.ok) throw new Error("Student enrollment failed.");
   }
 
@@ -123,17 +108,9 @@ async function main() {
   if (forbiddenRoster.status !== 403)
     throw new Error("Student roster access was not denied.");
 
-  const invalidAppCheck = await api(teacherToken, "/v1/classes", {
-    method: "POST",
-    headers: { "X-Firebase-AppCheck": "invalid-local-token" },
-    body: JSON.stringify({ courseId, termId, section: "SHOULD-NOT-EXIST" }),
-  });
-  if (invalidAppCheck.status !== 403)
-    throw new Error("Invalid App Check token was not denied.");
-
   console.log(`SQWeb local smoke test passed for class ${classId}.`);
   console.log(
-    "Verified: Auth, API, MySQL, class creation, invitation, enrollment, roster, role denial, and App Check denial.",
+    "Verified: Auth, API, MySQL, class creation, invitation, enrollment, roster, and role denial.",
   );
 }
 

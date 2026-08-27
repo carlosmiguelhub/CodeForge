@@ -7,7 +7,6 @@ import {
   type RequestedRegistrationRole,
   type SystemStatus,
 } from "@sqweb/contracts";
-import type { AppCheck } from "firebase/app-check";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -32,10 +31,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import {
-  getAppCheckHeader,
-  getFirebaseClientServices,
-} from "@/lib/firebase-client";
+import { getFirebaseClientServices } from "@/lib/firebase-client";
 import {
   clearActive,
   IDLE_TIMEOUT_MS,
@@ -78,14 +74,10 @@ interface AuthContextValue {
     requestedRole: RequestedRegistrationRole,
     sectionId?: string,
   ): Promise<void>;
-  authorizedFetch(
-    path: string,
-    init?: RequestInit,
-    requireAppCheck?: boolean,
-  ): Promise<Response>;
+  authorizedFetch(path: string, init?: RequestInit): Promise<Response>;
   executionFetch(path: string, init?: RequestInit): Promise<Response>;
-  // App Check-only, no bearer token — for reference data (like the section
-  // list) that a page must read before any Firebase Auth session exists.
+  // No bearer token — for reference data (like the section list) that a
+  // page must read before any Firebase Auth session exists.
   publicFetch(path: string): Promise<Response>;
   signOut(): Promise<void>;
 }
@@ -93,12 +85,10 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 const KNOWN_REGISTRATION_ERRORS = new Set([
   "Your session has expired. Sign in again.",
-  "Your request could not be verified. Refresh the page and try again.",
   "Registration could not be completed. Try again.",
 ]);
 const apiBaseUrl = process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "";
 const executionApiBaseUrl = process.env.NEXT_PUBLIC_EXECUTION_API_URL ?? "";
-const localAppCheckToken = process.env.NEXT_PUBLIC_LOCAL_APP_CHECK_TOKEN;
 const subscribeToClient = () => () => undefined;
 const IDLE_TIMEOUT_MESSAGE = `You were signed out after ${
   IDLE_TIMEOUT_MS / 60_000
@@ -125,17 +115,6 @@ class AccountFetchError extends Error {
   ) {
     super(message);
   }
-}
-
-async function resolveAppCheckHeader(
-  appCheck: AppCheck | null,
-): Promise<string> {
-  if (appCheck) return getAppCheckHeader(appCheck);
-  if (localAppCheckToken && process.env.NODE_ENV !== "production")
-    return localAppCheckToken;
-  throw new Error(
-    "Firebase App Check is required but has not been configured.",
-  );
 }
 
 function safeIdentityMessage(error: unknown): string {
@@ -210,14 +189,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     useCallback(async (): Promise<SystemStatus | null> => {
       if (!apiBaseUrl || !services) return null;
       try {
-        const headers = new Headers();
-        headers.set(
-          "X-Firebase-AppCheck",
-          await resolveAppCheckHeader(services.appCheck),
-        );
-        const response = await fetch(`${apiBaseUrl}/v1/system/status`, {
-          headers,
-        });
+        const response = await fetch(`${apiBaseUrl}/v1/system/status`);
         if (!response.ok) return null;
         return systemStatusSchema.parse(await response.json());
       } catch {
@@ -397,7 +369,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     isClient && (!services || !apiBaseUrl) ? "unavailable" : state;
 
   const authorizedFetch = useCallback(
-    async (path: string, init: RequestInit = {}, requireAppCheck = false) => {
+    async (path: string, init: RequestInit = {}) => {
       if (!services?.auth.currentUser)
         throw new Error("Authentication is required.");
       const headers = new Headers(init.headers);
@@ -406,12 +378,6 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         `Bearer ${await services.auth.currentUser.getIdToken()}`,
       );
       if (init.body) headers.set("Content-Type", "application/json");
-      if (requireAppCheck) {
-        headers.set(
-          "X-Firebase-AppCheck",
-          await resolveAppCheckHeader(services.appCheck),
-        );
-      }
       return fetch(`${apiBaseUrl}${path}`, { ...init, headers });
     },
     [services],
@@ -429,10 +395,6 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         `Bearer ${await services.auth.currentUser.getIdToken()}`,
       );
       if (init.body) headers.set("Content-Type", "application/json");
-      headers.set(
-        "X-Firebase-AppCheck",
-        await resolveAppCheckHeader(services.appCheck),
-      );
       return fetch(`${executionApiBaseUrl}${path}`, { ...init, headers });
     },
     [services],
@@ -441,12 +403,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const publicFetch = useCallback(
     async (path: string) => {
       if (!services) throw new Error("Firebase is not configured.");
-      const headers = new Headers();
-      headers.set(
-        "X-Firebase-AppCheck",
-        await resolveAppCheckHeader(services.appCheck),
-      );
-      return fetch(`${apiBaseUrl}${path}`, { headers });
+      return fetch(`${apiBaseUrl}${path}`);
     },
     [services],
   );
@@ -572,25 +529,17 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     async completeRegistration(displayName, requestedRole, sectionId) {
       setError(null);
       try {
-        const response = await authorizedFetch(
-          "/v1/registrations",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              displayName,
-              requestedRole,
-              ...(sectionId ? { sectionId } : {}),
-            }),
-          },
-          true,
-        );
+        const response = await authorizedFetch("/v1/registrations", {
+          method: "POST",
+          body: JSON.stringify({
+            displayName,
+            requestedRole,
+            ...(sectionId ? { sectionId } : {}),
+          }),
+        });
         if (!response.ok) {
           if (response.status === 401)
             throw new Error("Your session has expired. Sign in again.");
-          if (response.status === 403)
-            throw new Error(
-              "Your request could not be verified. Refresh the page and try again.",
-            );
           throw new Error("Registration could not be completed. Try again.");
         }
         const profile = accountProfileSchema.parse(await response.json());

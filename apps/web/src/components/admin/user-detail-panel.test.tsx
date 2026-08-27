@@ -137,7 +137,6 @@ describe("UserDetailPanel", () => {
           method: "PATCH",
           body: JSON.stringify({ sectionId: section.id }),
         }),
-        true,
       ),
     );
     expect(await screen.findByText("Section updated.")).toBeInTheDocument();
@@ -291,7 +290,6 @@ describe("UserDetailPanel", () => {
           method: "POST",
           body: JSON.stringify({ password: "New-Passw0rd!" }),
         }),
-        true,
       ),
     );
     expect(
@@ -363,7 +361,6 @@ describe("UserDetailPanel", () => {
       expect(mocks.authorizedFetch).toHaveBeenCalledWith(
         "/v1/admin/users/student-1",
         expect.objectContaining({ method: "DELETE" }),
-        true,
       ),
     );
     expect(mocks.onDeleted).toHaveBeenCalledWith("student-1");

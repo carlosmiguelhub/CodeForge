@@ -84,11 +84,7 @@ function OverviewSection() {
 
   const load = useCallback(async () => {
     try {
-      const response = await authorizedFetch(
-        "/v1/admin/infrastructure",
-        {},
-        true,
-      );
+      const response = await authorizedFetch("/v1/admin/infrastructure");
       if (!response.ok)
         throw new Error("The infrastructure overview could not be loaded.");
       const parsed = infrastructureOverviewSchema.parse(await response.json());
@@ -220,8 +216,6 @@ function AllocationsSection() {
         if (search.trim()) query.set("search", search.trim());
         const response = await authorizedFetch(
           `/v1/admin/infrastructure/allocations?${query.toString()}`,
-          {},
-          true,
         );
         if (!response.ok)
           throw new Error("Provisioned databases could not be loaded.");
@@ -400,8 +394,6 @@ function GuiSessionOverviewSection() {
     try {
       const response = await authorizedFetch(
         "/v1/admin/gui-sessions/overview",
-        {},
-        true,
       );
       if (!response.ok)
         throw new Error("The Java GUI session overview could not be loaded.");
@@ -493,8 +485,6 @@ function GuiSessionsSection() {
         if (search.trim()) query.set("search", search.trim());
         const response = await authorizedFetch(
           `/v1/admin/gui-sessions?${query.toString()}`,
-          {},
-          true,
         );
         if (!response.ok)
           throw new Error("Java GUI sessions could not be loaded.");

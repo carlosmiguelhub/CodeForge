@@ -93,10 +93,6 @@ export interface TokenVerifier {
   ): Promise<VerifiedIdentity>;
 }
 
-export interface AppCheckVerifier {
-  verifyToken(token: string): Promise<void>;
-}
-
 export interface ClaimsWriter {
   writeClaims(account: AccountProfile): Promise<void>;
 }

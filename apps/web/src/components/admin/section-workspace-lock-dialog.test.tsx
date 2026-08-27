@@ -74,7 +74,6 @@ describe("SectionWorkspaceLockDialog", () => {
             lockedWorkspaces: ["sql-workbench", "code-compiler"],
           }),
         }),
-        true,
       ),
     );
     await waitFor(() => expect(onSaved).toHaveBeenCalled());

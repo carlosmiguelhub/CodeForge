@@ -75,15 +75,11 @@ export function WorkspaceList({
     setBusy(true);
     setStatus("Requesting an isolated workspace…");
     try {
-      const response = await authorizedFetch(
-        "/v1/workspaces",
-        {
-          method: "POST",
-          headers: { "Idempotency-Key": randomId() },
-          body: JSON.stringify({ scope: "personal" }),
-        },
-        true,
-      );
+      const response = await authorizedFetch("/v1/workspaces", {
+        method: "POST",
+        headers: { "Idempotency-Key": randomId() },
+        body: JSON.stringify({ scope: "personal" }),
+      });
       if (!response.ok)
         throw new Error("The workspace request was not accepted.");
       await load();
@@ -115,7 +111,6 @@ export function WorkspaceList({
           headers: { "Idempotency-Key": randomId() },
           body: JSON.stringify({ reason }),
         },
-        true,
       );
       if (!response.ok) throw new Error("The reset request was not accepted.");
       form.reset();

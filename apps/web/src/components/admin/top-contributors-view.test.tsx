@@ -55,8 +55,6 @@ describe("TopContributorsView", () => {
     expect(screen.getByText("No section")).toBeInTheDocument();
     expect(mocks.authorizedFetch).toHaveBeenCalledWith(
       "/v1/admin/top-contributors",
-      {},
-      true,
     );
   });
 

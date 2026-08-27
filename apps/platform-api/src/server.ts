@@ -93,10 +93,7 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
         ? false
         : {
             redact: {
-              paths: [
-                "req.headers.authorization",
-                "req.headers.x-firebase-appcheck",
-              ],
+              paths: ["req.headers.authorization"],
               censor: "[REDACTED]",
             },
           },
@@ -110,7 +107,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
     allowedHeaders: [
       "Authorization",
       "Content-Type",
-      "X-Firebase-AppCheck",
       "X-Request-ID",
       "Idempotency-Key",
     ],
@@ -176,9 +172,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/registrations", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -193,23 +186,14 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/sections", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     return dependencies.section.listPublic();
   });
 
   server.get("/v1/system/status", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     return dependencies.identity.getSystemStatus();
   });
 
   server.put("/v1/admin/settings/maintenance", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -222,9 +206,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/admin/settings/activity-reset", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -233,9 +214,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/sections", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -243,9 +221,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/admin/sections", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -258,9 +233,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.delete("/v1/admin/sections/:id", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -270,9 +242,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/admin/sections/:id/restore", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -282,9 +251,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.patch("/v1/admin/sections/:id/locked-workspaces", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -298,9 +264,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/users", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -309,9 +272,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/admin/users", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -321,9 +281,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/users/:firebaseUid", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -332,9 +289,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/users/:firebaseUid/usage", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -346,9 +300,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/admin/users/:firebaseUid/roles", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -362,9 +313,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.patch("/v1/admin/users/:firebaseUid/section", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -378,9 +326,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.delete("/v1/admin/users/:firebaseUid/roles/:role", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -395,9 +340,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   server.post(
     "/v1/admin/users/:firebaseUid/reset-password",
     async (request, reply) => {
-      await dependencies.identity.verifyAppCheck(
-        headerValue(request.headers["x-firebase-appcheck"]),
-      );
       const verified = await dependencies.identity.verifyBearer(
         request.headers.authorization,
       );
@@ -413,9 +355,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   server.post(
     "/v1/admin/users/:firebaseUid/set-password",
     async (request, reply) => {
-      await dependencies.identity.verifyAppCheck(
-        headerValue(request.headers["x-firebase-appcheck"]),
-      );
       const verified = await dependencies.identity.verifyBearer(
         request.headers.authorization,
       );
@@ -431,9 +370,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   );
 
   server.delete("/v1/admin/users/:firebaseUid", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -443,9 +379,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/dashboard", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -453,9 +386,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/top-contributors", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -464,9 +394,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/audit-events", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -475,9 +402,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/infrastructure", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -485,9 +409,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/infrastructure/allocations", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -496,9 +417,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/gui-sessions/overview", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -506,9 +424,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.get("/v1/admin/gui-sessions", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -517,9 +432,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.patch("/v1/admin/users/:firebaseUid/status", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -545,9 +457,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/workspaces", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -577,9 +486,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/workspaces/:id/reset", async (request, reply) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -784,9 +690,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/interactive-run-grants", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );
@@ -809,9 +712,6 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
   });
 
   server.post("/v1/execution-grants", async (request) => {
-    await dependencies.identity.verifyAppCheck(
-      headerValue(request.headers["x-firebase-appcheck"]),
-    );
     const verified = await dependencies.identity.verifyBearer(
       request.headers.authorization,
     );

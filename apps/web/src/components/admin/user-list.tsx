@@ -69,8 +69,6 @@ export function UserList() {
         if (sectionFilter) query.set("sectionId", sectionFilter);
         const response = await authorizedFetch(
           `/v1/admin/users?${query.toString()}`,
-          {},
-          true,
         );
         if (!response.ok) throw new Error("Users could not be loaded.");
         const parsed = accountListResponseSchema.parse(await response.json());
@@ -99,7 +97,7 @@ export function UserList() {
 
   const loadSections = useCallback(async () => {
     try {
-      const response = await authorizedFetch("/v1/admin/sections", {}, true);
+      const response = await authorizedFetch("/v1/admin/sections");
       if (!response.ok) return;
       setSections(sectionListSchema.parse(await response.json()));
     } catch {
@@ -140,7 +138,6 @@ export function UserList() {
               "Teacher identity approved through the administrator review queue.",
           }),
         },
-        true,
       );
       if (!response.ok) throw new Error("Approval failed.");
       const updated = (await response.json()) as AccountProfile;

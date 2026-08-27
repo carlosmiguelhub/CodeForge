@@ -195,14 +195,10 @@ export function SqlWorkbench({
   }, []);
 
   const getGrant = useCallback(async () => {
-    const response = await authorizedFetch(
-      "/v1/execution-grants",
-      {
-        method: "POST",
-        body: JSON.stringify({ workspaceId, requestedMode: "interactive" }),
-      },
-      true,
-    );
+    const response = await authorizedFetch("/v1/execution-grants", {
+      method: "POST",
+      body: JSON.stringify({ workspaceId, requestedMode: "interactive" }),
+    });
     if (!response.ok)
       throw new Error("Execution authorization could not be issued.");
     return executionGrantResponseSchema.parse(await response.json());

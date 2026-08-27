@@ -8,7 +8,6 @@ import type {
   AccountRepository,
   AccountStatusChange,
   AdminCreateUserInput,
-  AppCheckVerifier,
   AuditSink,
   ClaimsWriter,
   InstitutionRepository,
@@ -24,7 +23,6 @@ const DEFAULT_MAINTENANCE_MESSAGE =
 export interface IdentityServiceDependencies {
   readonly accounts: AccountRepository;
   readonly tokens: TokenVerifier;
-  readonly appCheck: AppCheckVerifier;
   readonly claims: ClaimsWriter;
   readonly audit: AuditSink;
   readonly provisioner: UserProvisioner;
@@ -55,26 +53,6 @@ export class IdentityService {
         "AUTHENTICATION_REQUIRED",
         "The authentication token is invalid or expired.",
         401,
-      );
-    }
-  }
-
-  async verifyAppCheck(token: string | undefined): Promise<void> {
-    if (!token) {
-      throw new AuthorizationError(
-        "PERMISSION_DENIED",
-        "Application verification is required.",
-        403,
-      );
-    }
-
-    try {
-      await this.dependencies.appCheck.verifyToken(token);
-    } catch {
-      throw new AuthorizationError(
-        "PERMISSION_DENIED",
-        "Application verification failed.",
-        403,
       );
     }
   }

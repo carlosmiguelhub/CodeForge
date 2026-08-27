@@ -78,7 +78,6 @@ export function SystemSettingsView() {
             message: messageDraft.trim() ? messageDraft.trim() : null,
           }),
         },
-        true,
       );
       if (!response.ok)
         throw new Error("Maintenance mode could not be updated.");
@@ -114,7 +113,6 @@ export function SystemSettingsView() {
           method: "POST",
           body: JSON.stringify({ reason: resetReason.trim() }),
         },
-        true,
       );
       if (!response.ok) throw new Error("Activity numbers could not be reset.");
       const parsed = activityResetSummarySchema.parse(await response.json());

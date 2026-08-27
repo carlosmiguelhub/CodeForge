@@ -36,7 +36,7 @@ export function SectionList() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const response = await authorizedFetch("/v1/admin/sections", {}, true);
+      const response = await authorizedFetch("/v1/admin/sections");
       if (!response.ok) throw new Error("Sections could not be loaded.");
       setSections(sectionListSchema.parse(await response.json()));
     } catch {
@@ -61,11 +61,10 @@ export function SectionList() {
     setCreating(true);
     setError(null);
     try {
-      const response = await authorizedFetch(
-        "/v1/admin/sections",
-        { method: "POST", body: JSON.stringify({ name: name.trim() }) },
-        true,
-      );
+      const response = await authorizedFetch("/v1/admin/sections", {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim() }),
+      });
       if (!response.ok) throw new Error("The section could not be created.");
       setName("");
       await load();
@@ -83,7 +82,6 @@ export function SectionList() {
       const response = await authorizedFetch(
         `/v1/admin/sections/${section.id}`,
         { method: "DELETE" },
-        true,
       );
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as {
@@ -112,7 +110,6 @@ export function SectionList() {
       const response = await authorizedFetch(
         `/v1/admin/sections/${section.id}/restore`,
         { method: "POST" },
-        true,
       );
       if (!response.ok) throw new Error("The section could not be restored.");
       await load();

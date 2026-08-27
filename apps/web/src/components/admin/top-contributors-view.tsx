@@ -48,11 +48,7 @@ export function TopContributorsView() {
 
   const load = useCallback(async () => {
     try {
-      const response = await authorizedFetch(
-        "/v1/admin/top-contributors",
-        {},
-        true,
-      );
+      const response = await authorizedFetch("/v1/admin/top-contributors");
       if (!response.ok)
         throw new Error("Top contributors could not be loaded.");
       const parsed = topContributorListResponseSchema.parse(

@@ -87,15 +87,9 @@ export function UserDetailPanel({
     void (async () => {
       try {
         const [accountRes, usageRes] = await Promise.all([
-          authorizedFetch(
-            `/v1/admin/users/${encodeURIComponent(firebaseUid)}`,
-            {},
-            true,
-          ),
+          authorizedFetch(`/v1/admin/users/${encodeURIComponent(firebaseUid)}`),
           authorizedFetch(
             `/v1/admin/users/${encodeURIComponent(firebaseUid)}/usage`,
-            {},
-            true,
           ),
         ]);
         if (!accountRes.ok || !usageRes.ok)
@@ -136,7 +130,6 @@ export function UserDetailPanel({
           method: "PATCH",
           body: JSON.stringify({ status: pendingStatus, reason }),
         },
-        true,
       );
       if (!response.ok) throw new Error("The status change was not accepted.");
       const updated = accountProfileSchema.parse(await response.json());
@@ -165,7 +158,6 @@ export function UserDetailPanel({
       const response = await auth.authorizedFetch(
         `/v1/admin/users/${encodeURIComponent(firebaseUid)}/roles`,
         { method: "POST", body: JSON.stringify({ role }) },
-        true,
       );
       if (!response.ok) throw new Error("The role could not be added.");
       const updated = accountProfileSchema.parse(await response.json());
@@ -191,7 +183,6 @@ export function UserDetailPanel({
       const response = await auth.authorizedFetch(
         `/v1/admin/users/${encodeURIComponent(firebaseUid)}/roles/${role}`,
         { method: "DELETE" },
-        true,
       );
       if (!response.ok)
         throw new Error(
@@ -225,7 +216,6 @@ export function UserDetailPanel({
           method: "PATCH",
           body: JSON.stringify({ sectionId: sectionDraft || null }),
         },
-        true,
       );
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as {
@@ -260,7 +250,6 @@ export function UserDetailPanel({
       const response = await auth.authorizedFetch(
         `/v1/admin/users/${encodeURIComponent(firebaseUid)}/reset-password`,
         { method: "POST" },
-        true,
       );
       if (!response.ok)
         throw new Error("The password reset could not be recorded.");
@@ -289,7 +278,6 @@ export function UserDetailPanel({
       const response = await auth.authorizedFetch(
         `/v1/admin/users/${encodeURIComponent(firebaseUid)}/set-password`,
         { method: "POST", body: JSON.stringify({ password: newPassword }) },
-        true,
       );
       if (!response.ok) throw new Error("The password could not be changed.");
       setFeedback({ tone: "success", message: "Password changed directly." });
@@ -316,7 +304,6 @@ export function UserDetailPanel({
       const response = await auth.authorizedFetch(
         `/v1/admin/users/${encodeURIComponent(firebaseUid)}`,
         { method: "DELETE" },
-        true,
       );
       if (!response.ok) throw new Error("The account could not be deleted.");
       onDeleted(firebaseUid);

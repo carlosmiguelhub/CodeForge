@@ -17,26 +17,17 @@ import {
   UnconfiguredCodeJudgeClient,
 } from "./code-judge-client";
 import { ExecutionService } from "./execution-service";
-import {
-  FirebaseAppCheckVerifier,
-  FirebaseTokenVerifier,
-  LocalAppCheckVerifier,
-} from "./firebase-adapters";
+import { FirebaseTokenVerifier } from "./firebase-adapters";
 import { MySqlRunner } from "./mysql-runner";
 import { RequestVerifier } from "./request-verifier";
 import { buildExecutionServer } from "./server";
 
 const environment = z
   .object({
-    NODE_ENV: z
-      .enum(["development", "test", "production"])
-      .default("development"),
     FIREBASE_PROJECT_ID: z.string().min(1),
     FIREBASE_AUTH_EMULATOR_HOST: z.string().min(1).optional(),
     PLATFORM_DATABASE_URL: z.string().min(1),
     SQWEB_ALLOWED_ORIGINS: z.string().min(1),
-    SQWEB_APP_CHECK_MODE: z.enum(["firebase", "local"]).default("firebase"),
-    SQWEB_LOCAL_APP_CHECK_TOKEN: z.string().min(32).optional(),
     SQWEB_EXECUTION_GRANT_SECRET: z.string().min(32),
     WORKSPACE_SECRET_STORE: z.enum(["local", "google"]).default("google"),
     WORKSPACE_LOCAL_SECRET_DIRECTORY: z.string().min(1).optional(),
@@ -46,24 +37,6 @@ const environment = z
     PORT: z.coerce.number().int().positive().max(65_535).default(8081),
   })
   .superRefine((value, context) => {
-    if (
-      value.NODE_ENV === "production" &&
-      value.SQWEB_APP_CHECK_MODE === "local"
-    )
-      context.addIssue({
-        code: "custom",
-        path: ["SQWEB_APP_CHECK_MODE"],
-        message: "Local App Check bypass cannot run in production.",
-      });
-    if (
-      value.SQWEB_APP_CHECK_MODE === "local" &&
-      !value.SQWEB_LOCAL_APP_CHECK_TOKEN
-    )
-      context.addIssue({
-        code: "custom",
-        path: ["SQWEB_LOCAL_APP_CHECK_TOKEN"],
-        message: "Local App Check token is required.",
-      });
     if (
       value.WORKSPACE_SECRET_STORE === "local" &&
       !value.WORKSPACE_LOCAL_SECRET_DIRECTORY
@@ -122,12 +95,7 @@ const codeJudge = environment.RAPIDAPI_JUDGE0_KEY
     )
   : new UnconfiguredCodeJudgeClient();
 const codeExecutionHistory = new MySqlCodeExecutionRepository(platformPool);
-const verifier = new RequestVerifier(
-  new FirebaseTokenVerifier(firebaseApp),
-  environment.SQWEB_APP_CHECK_MODE === "local"
-    ? new LocalAppCheckVerifier(environment.SQWEB_LOCAL_APP_CHECK_TOKEN ?? "")
-    : new FirebaseAppCheckVerifier(firebaseApp),
-);
+const verifier = new RequestVerifier(new FirebaseTokenVerifier(firebaseApp));
 const server = await buildExecutionServer({
   verifier,
   execution,

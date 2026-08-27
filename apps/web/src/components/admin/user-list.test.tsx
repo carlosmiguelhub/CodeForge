@@ -111,7 +111,6 @@ describe("UserList", () => {
       expect(mocks.authorizedFetch).toHaveBeenCalledWith(
         "/v1/admin/users/teacher-1/status",
         expect.objectContaining({ method: "PATCH" }),
-        true,
       ),
     );
     const table = await screen.findByRole("table");
@@ -185,8 +184,6 @@ describe("UserList", () => {
     await waitFor(() =>
       expect(mocks.authorizedFetch).toHaveBeenCalledWith(
         expect.stringContaining(`sectionId=${section.id}`),
-        {},
-        true,
       ),
     );
   });

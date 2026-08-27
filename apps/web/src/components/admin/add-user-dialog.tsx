@@ -46,14 +46,10 @@ export function AddUserDialog({
     setBusy(true);
     setError(null);
     try {
-      const response = await auth.authorizedFetch(
-        "/v1/admin/users",
-        {
-          method: "POST",
-          body: JSON.stringify({ email, displayName, roles }),
-        },
-        true,
-      );
+      const response = await auth.authorizedFetch("/v1/admin/users", {
+        method: "POST",
+        body: JSON.stringify({ email, displayName, roles }),
+      });
       if (!response.ok) {
         throw new Error(
           response.status === 409

@@ -8,10 +8,9 @@ import {
 } from "mysql2/promise";
 
 const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
-const appCheckToken = process.env.SQWEB_LOCAL_APP_CHECK_TOKEN;
 const platformDatabaseUrl = process.env.PLATFORM_DATABASE_URL;
 const secretDirectory = process.env.WORKSPACE_LOCAL_SECRET_DIRECTORY;
-if (!emulatorHost || !appCheckToken || !platformDatabaseUrl || !secretDirectory)
+if (!emulatorHost || !platformDatabaseUrl || !secretDirectory)
   throw new Error("Local workspace smoke-test settings are required.");
 
 const apiBaseUrl = "http://127.0.0.1:8080";
@@ -40,7 +39,6 @@ async function api(token: string, path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Content-Type", "application/json");
-  headers.set("X-Firebase-AppCheck", appCheckToken!);
   return fetch(`${apiBaseUrl}${path}`, { ...init, headers });
 }
 

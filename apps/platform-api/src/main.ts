@@ -29,26 +29,19 @@ import { createPool } from "mysql2/promise";
 import { z } from "zod";
 
 import {
-  FirebaseAppCheckVerifier,
   FirebaseClaimsWriter,
   FirebaseTokenVerifier,
   FirebaseUserProvisioner,
-  LocalAppCheckVerifier,
 } from "./firebase-adapters";
 import { buildServer } from "./server";
 
 const environmentSchema = z
   .object({
-    NODE_ENV: z
-      .enum(["development", "test", "production"])
-      .default("development"),
     FIREBASE_PROJECT_ID: z.string().min(1),
     FIREBASE_AUTH_EMULATOR_HOST: z.string().min(1).optional(),
     PLATFORM_DATABASE_URL: z.string().min(1),
     SQWEB_ALLOWED_ORIGINS: z.string().min(1),
     SQWEB_DEFAULT_INSTITUTION_ID: z.string().uuid(),
-    SQWEB_APP_CHECK_MODE: z.enum(["firebase", "local"]).default("firebase"),
-    SQWEB_LOCAL_APP_CHECK_TOKEN: z.string().min(32).optional(),
     SQWEB_EXECUTION_GRANT_SECRET: z.string().min(32),
     GUI_SESSION_MAX_RUNTIME_SECONDS: z.coerce
       .number()
@@ -61,28 +54,6 @@ const environmentSchema = z
       .positive()
       .default(300),
     PORT: z.coerce.number().int().positive().max(65_535).default(8080),
-  })
-  .superRefine((value, context) => {
-    if (
-      value.SQWEB_APP_CHECK_MODE === "local" &&
-      value.NODE_ENV === "production"
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["SQWEB_APP_CHECK_MODE"],
-        message: "Local App Check cannot run in production.",
-      });
-    }
-    if (
-      value.SQWEB_APP_CHECK_MODE === "local" &&
-      !value.SQWEB_LOCAL_APP_CHECK_TOKEN
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["SQWEB_LOCAL_APP_CHECK_TOKEN"],
-        message: "Local App Check requires an explicit token.",
-      });
-    }
   });
 
 const environment = environmentSchema.parse(process.env);
@@ -115,10 +86,6 @@ const identity = new IdentityService({
   accounts,
   institutions,
   tokens: new FirebaseTokenVerifier(firebaseApp),
-  appCheck:
-    environment.SQWEB_APP_CHECK_MODE === "local"
-      ? new LocalAppCheckVerifier(environment.SQWEB_LOCAL_APP_CHECK_TOKEN ?? "")
-      : new FirebaseAppCheckVerifier(firebaseApp),
   claims: new FirebaseClaimsWriter(firebaseApp),
   audit,
   provisioner: new FirebaseUserProvisioner(firebaseApp),

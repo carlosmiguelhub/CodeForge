@@ -18,7 +18,7 @@ export function AdminDashboard() {
 
   const load = useCallback(async () => {
     try {
-      const response = await authorizedFetch("/v1/admin/dashboard", {}, true);
+      const response = await authorizedFetch("/v1/admin/dashboard");
       if (!response.ok) throw new Error("The dashboard could not be loaded.");
       const parsed = adminDashboardStatsSchema.parse(await response.json());
       setStats(parsed);

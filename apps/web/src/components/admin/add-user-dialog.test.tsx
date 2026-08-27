@@ -56,7 +56,6 @@ describe("AddUserDialog", () => {
       expect(mocks.authorizedFetch).toHaveBeenCalledWith(
         "/v1/admin/users",
         expect.objectContaining({ method: "POST" }),
-        true,
       ),
     );
     await waitFor(() =>

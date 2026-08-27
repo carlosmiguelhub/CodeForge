@@ -95,7 +95,6 @@ function setup(profile: AccountProfile | null = account()) {
         emailVerified: true,
       }),
     },
-    appCheck: { verifyToken: vi.fn().mockResolvedValue(undefined) },
     claims: { writeClaims: vi.fn().mockResolvedValue(undefined) },
     audit: { record: vi.fn().mockResolvedValue(undefined) },
     provisioner: {
@@ -170,13 +169,6 @@ describe("IdentityService", () => {
       "teacher",
     );
     expect(result.status).toBe("pending_approval");
-  });
-
-  it("requires App Check for protected mutations", async () => {
-    const { service } = setup();
-    await expect(service.verifyAppCheck(undefined)).rejects.toMatchObject({
-      code: "PERMISSION_DENIED",
-    });
   });
 
   it("updates a display name and records an audit event", async () => {

@@ -80,7 +80,6 @@ describe("SystemSettingsView", () => {
           method: "POST",
           body: JSON.stringify({ reason: "Clearing test data" }),
         }),
-        true,
       ),
     );
     expect(

@@ -57,11 +57,7 @@ describe("AdminDashboard", () => {
     render(<AdminDashboard />);
     await waitFor(() => expect(screen.getByText("5")).toBeInTheDocument());
     expect(screen.getByText("Total users")).toBeInTheDocument();
-    expect(mocks.authorizedFetch).toHaveBeenCalledWith(
-      "/v1/admin/dashboard",
-      {},
-      true,
-    );
+    expect(mocks.authorizedFetch).toHaveBeenCalledWith("/v1/admin/dashboard");
   });
 
   it("shows a usage card with the total count for each workspace", async () => {

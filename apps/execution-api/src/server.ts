@@ -52,7 +52,6 @@ export async function buildExecutionServer(dependencies: {
             redact: {
               paths: [
                 "req.headers.authorization",
-                "req.headers.x-firebase-appcheck",
                 "req.headers.x-sqweb-execution-grant",
                 "req.body.sql",
                 "req.body.grant",
@@ -71,7 +70,6 @@ export async function buildExecutionServer(dependencies: {
     allowedHeaders: [
       "Authorization",
       "Content-Type",
-      "X-Firebase-AppCheck",
       "X-SQWeb-Execution-Grant",
     ],
   });
@@ -118,11 +116,7 @@ export async function buildExecutionServer(dependencies: {
 
   const verify = (request: {
     headers: Record<string, string | string[] | undefined>;
-  }) =>
-    dependencies.verifier.verify(
-      header(request.headers.authorization),
-      header(request.headers["x-firebase-appcheck"]),
-    );
+  }) => dependencies.verifier.verify(header(request.headers.authorization));
 
   server.get("/health", async () => ({ status: "ok" }));
   server.post("/v1/executions", async (request) => {
