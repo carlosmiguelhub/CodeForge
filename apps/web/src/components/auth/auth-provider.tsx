@@ -499,8 +499,16 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     async reloadIdentity() {
       if (!services?.auth.currentUser) return false;
       await reload(services.auth.currentUser);
+      const verified = services.auth.currentUser.emailVerified;
+      // reload() updates the local User object, but the cached ID token's
+      // own email_verified claim (what the backend actually checks) is
+      // still whatever it was when the token was issued. Without forcing
+      // a refresh here, the very next authorized request — completeRegistration,
+      // fired automatically by /continue right after this resolves — would
+      // carry a stale token and get rejected as still-unverified.
+      if (verified) await services.auth.currentUser.getIdToken(true);
       await synchronize(services.auth.currentUser);
-      return services.auth.currentUser.emailVerified;
+      return verified;
     },
     async completeRegistration(displayName, requestedRole, sectionId) {
       setError(null);
