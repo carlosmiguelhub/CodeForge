@@ -129,8 +129,9 @@ function LoginForm() {
           </button>
         </form>
         <p className="text-ink-muted text-center text-xs">
-          Haven&rsquo;t verified your email yet? Sign in above and
-          you&rsquo;ll be prompted to resend the link.
+          Haven&rsquo;t verified your email yet? Enter your email and
+          password above and click Sign in anyway &mdash; you&rsquo;ll be
+          taken to a page where you can resend the verification link.
         </p>
         <p className="text-ink-muted text-center text-xs">
           Need an account?{" "}
