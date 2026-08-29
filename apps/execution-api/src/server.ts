@@ -7,6 +7,7 @@ import type {
 import {
   codeExecutionRequestSchema,
   executionRequestSchema,
+  interactiveRunHistoryRequestSchema,
 } from "@sqweb/contracts";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
@@ -171,6 +172,23 @@ export async function buildExecutionServer(dependencies: {
   server.get("/v1/code-execution-history", async (request) => {
     const identity = await verify(request);
     return dependencies.codeExecutionHistory.listHistory(identity.uid);
+  });
+  // Interactive runs (apps/interactive-run-api) never touch this database
+  // themselves — the client reports the outcome here once a run reaches a
+  // natural exit, so it's counted the same way a judged run is. No judge
+  // concept of "wrong answer" applies to a live interactive console (there's
+  // no expected output to compare against), so this only distinguishes a
+  // clean exit from everything else.
+  server.post("/v1/interactive-run-history", async (request) => {
+    const identity = await verify(request);
+    const body = interactiveRunHistoryRequestSchema.parse(request.body);
+    await dependencies.codeExecutionHistory.record(
+      identity.uid,
+      body.language,
+      body.exitCode === 0 ? "accepted" : "runtime_error",
+      body.timeMs,
+    );
+    return { recorded: true };
   });
   return server;
 }

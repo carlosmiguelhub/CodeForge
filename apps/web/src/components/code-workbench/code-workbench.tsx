@@ -154,7 +154,7 @@ interface Draft {
 }
 
 export function CodeWorkbench() {
-  const { authorizedFetch, account } = useAuth();
+  const { authorizedFetch, executionFetch, account } = useAuth();
   // Starts as an obviously-empty placeholder, not the seed content — the
   // real (possibly seeded) workspace loads moments later below, and
   // pre-filling this with fake-looking content would invite the student to
@@ -483,6 +483,7 @@ export function CodeWorkbench() {
       const socket = new WebSocket(interactiveRunSocketUrl(grant.token));
       interactiveSocketRef.current = socket;
       let terminalMessageReceived = false;
+      let startedAtMs: number | null = null;
 
       socket.addEventListener("open", () => {
         if (interactiveStopRequestedRef.current) {
@@ -490,6 +491,7 @@ export function CodeWorkbench() {
           return;
         }
         setInteractiveState("running");
+        startedAtMs = Date.now();
         socket.send(
           JSON.stringify({
             type: "start",
@@ -515,6 +517,18 @@ export function CodeWorkbench() {
                 "status",
                 "\n[Process exited with code " + message.exitCode + "]\n",
               );
+              // Best-effort: this only feeds the admin dashboard and
+              // leaderboard totals, never anything the student is waiting
+              // on, so a failure here is silently dropped rather than
+              // surfaced in the console.
+              void executionFetch("/v1/interactive-run-history", {
+                method: "POST",
+                body: JSON.stringify({
+                  language: submittedFile.language,
+                  exitCode: message.exitCode,
+                  timeMs: startedAtMs === null ? null : Date.now() - startedAtMs,
+                }),
+              }).catch(() => undefined);
               socket.close();
               break;
             case "error":

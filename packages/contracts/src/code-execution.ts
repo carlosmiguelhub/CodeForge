@@ -90,6 +90,21 @@ export const codeExecutionResponseSchema = z.object({
 });
 export type CodeExecutionResponse = z.infer<typeof codeExecutionResponseSchema>;
 
+// Reported by the client after an interactive run (apps/interactive-run-api)
+// reaches a natural exit, so it counts toward the same code-execution
+// history/leaderboard totals as a judged run — interactive-run-api itself
+// has no database access by design, and has no notion of "accepted" vs
+// "wrong answer" (there's no expected output to compare against, unlike a
+// judged submission), only whether the program exited cleanly.
+export const interactiveRunHistoryRequestSchema = z.object({
+  language: codeLanguageSchema,
+  exitCode: z.number().int(),
+  timeMs: z.number().nonnegative().nullable(),
+});
+export type InteractiveRunHistoryRequest = z.infer<
+  typeof interactiveRunHistoryRequestSchema
+>;
+
 export const codeExecutionHistoryItemSchema = z.object({
   id: z.string().uuid(),
   language: codeLanguageSchema,
