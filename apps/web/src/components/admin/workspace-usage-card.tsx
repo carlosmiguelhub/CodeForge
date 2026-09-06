@@ -5,7 +5,14 @@ import {
   type WorkspaceKind,
   type WorkspaceUsageStat,
 } from "@sqweb/contracts";
-import { AppWindow, Bookmark, Code2, Database, Network } from "lucide-react";
+import {
+  AppWindow,
+  Bookmark,
+  Code2,
+  Database,
+  Globe,
+  Network,
+} from "lucide-react";
 import { type PointerEvent, useId, useState } from "react";
 
 const workspaceIcons: Record<WorkspaceKind, typeof Database> = {
@@ -14,6 +21,7 @@ const workspaceIcons: Record<WorkspaceKind, typeof Database> = {
   "erd-editor": Network,
   "saved-queries": Bookmark,
   "java-gui-workspace": AppWindow,
+  "web-workspace": Globe,
 };
 
 const SPARKLINE_WIDTH = 240;

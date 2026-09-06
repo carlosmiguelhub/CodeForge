@@ -38,6 +38,14 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { randomId } from "@/lib/random-id";
+import {
+  collectFileIds,
+  findNode,
+  findParentId,
+  insertChild,
+  mapNode,
+  removeNode,
+} from "@/lib/tree-nodes";
 import { interactiveRunSocketUrl } from "@/lib/interactive-run-url";
 import { Spinner } from "@/components/ui/spinner";
 import { CodeEditor, type CodeEditorController } from "./code-editor";
@@ -78,72 +86,6 @@ const ROOT_ID = "root";
 
 function defaultFileName(language: CodeLanguage) {
   return `solution.${codeLanguageMeta[language].extension}`;
-}
-
-function findNode(node: CodeNode, id: string): CodeNode | null {
-  if (node.id === id) return node;
-  if (node.kind === "folder") {
-    for (const child of node.children) {
-      const found = findNode(child, id);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-function findParentId(node: CodeFolderNode, id: string): string | null {
-  for (const child of node.children) {
-    if (child.id === id) return node.id;
-    if (child.kind === "folder") {
-      const found = findParentId(child, id);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-function mapNode(
-  node: CodeNode,
-  id: string,
-  fn: (node: CodeNode) => CodeNode,
-): CodeNode {
-  if (node.id === id) return fn(node);
-  if (node.kind === "folder") {
-    return {
-      ...node,
-      children: node.children.map((child) => mapNode(child, id, fn)),
-    };
-  }
-  return node;
-}
-
-function insertChild(
-  node: CodeNode,
-  parentId: string,
-  child: CodeNode,
-): CodeNode {
-  if (node.kind !== "folder") return node;
-  if (node.id === parentId)
-    return { ...node, children: [...node.children, child] };
-  return {
-    ...node,
-    children: node.children.map((c) => insertChild(c, parentId, child)),
-  };
-}
-
-function removeNode(node: CodeNode, id: string): CodeNode {
-  if (node.kind !== "folder") return node;
-  return {
-    ...node,
-    children: node.children
-      .filter((child) => child.id !== id)
-      .map((child) => removeNode(child, id)),
-  };
-}
-
-function collectFileIds(node: CodeNode): string[] {
-  if (node.kind === "file") return [node.id];
-  return node.children.flatMap(collectFileIds);
 }
 
 interface Draft {
@@ -265,11 +207,13 @@ export function CodeWorkbench() {
     };
   }, [authorizedFetch, loadState, root, expanded, openFileIds, activeFileId]);
 
-  const activeNode = activeFileId ? findNode(root, activeFileId) : null;
+  const activeNode = activeFileId
+    ? findNode<CodeFileNode, CodeFolderNode>(root, activeFileId)
+    : null;
   const activeFile: CodeFileNode | null =
     activeNode?.kind === "file" ? activeNode : null;
   const openFiles = openFileIds
-    .map((id) => findNode(root, id))
+    .map((id) => findNode<CodeFileNode, CodeFolderNode>(root, id))
     .filter((node): node is CodeFileNode => node?.kind === "file");
 
   function updateActiveSource(sourceCode: string) {
@@ -377,7 +321,7 @@ export function CodeWorkbench() {
   }
 
   function deleteNode(id: string) {
-    const node = findNode(root, id);
+    const node = findNode<CodeFileNode, CodeFolderNode>(root, id);
     if (!node) return;
     const removedFileIds = new Set(collectFileIds(node));
     setRoot((current) => removeNode(current, id) as CodeFolderNode);
@@ -526,7 +470,8 @@ export function CodeWorkbench() {
                 body: JSON.stringify({
                   language: submittedFile.language,
                   exitCode: message.exitCode,
-                  timeMs: startedAtMs === null ? null : Date.now() - startedAtMs,
+                  timeMs:
+                    startedAtMs === null ? null : Date.now() - startedAtMs,
                 }),
               }).catch(() => undefined);
               socket.close();

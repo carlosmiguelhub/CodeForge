@@ -21,6 +21,7 @@
     "@sqweb/execution": "0.1.0",
     "@sqweb/gui-session": "0.1.0",
     "@sqweb/gui-workspace": "0.1.0",
+    "@sqweb/web-workspace": "0.1.0",
     "@sqweb/saved-queries": "0.1.0",
     "@sqweb/sections": "0.1.0",
     "@sqweb/workspace": "0.1.0",

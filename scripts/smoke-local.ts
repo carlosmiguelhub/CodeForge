@@ -84,10 +84,14 @@ async function main() {
     if (invitationResponse.status !== 201)
       throw new Error("Invitation creation failed.");
     const invitation = (await invitationResponse.json()) as { code: string };
-    const joinResponse = await api(studentToken, `/v1/classes/${classId}/join`, {
-      method: "POST",
-      body: JSON.stringify({ code: invitation.code }),
-    });
+    const joinResponse = await api(
+      studentToken,
+      `/v1/classes/${classId}/join`,
+      {
+        method: "POST",
+        body: JSON.stringify({ code: invitation.code }),
+      },
+    );
     if (!joinResponse.ok) throw new Error("Student enrollment failed.");
   }
 

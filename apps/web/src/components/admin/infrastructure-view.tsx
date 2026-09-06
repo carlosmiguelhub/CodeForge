@@ -392,9 +392,7 @@ function GuiSessionOverviewSection() {
 
   const load = useCallback(async () => {
     try {
-      const response = await authorizedFetch(
-        "/v1/admin/gui-sessions/overview",
-      );
+      const response = await authorizedFetch("/v1/admin/gui-sessions/overview");
       if (!response.ok)
         throw new Error("The Java GUI session overview could not be loaded.");
       const parsed = guiSessionOverviewSchema.parse(await response.json());

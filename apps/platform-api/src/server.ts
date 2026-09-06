@@ -6,6 +6,7 @@ import type { CodeWorkspaceService } from "@sqweb/code-workspace";
 import type { ErdService } from "@sqweb/erd";
 import type { GuiSessionService } from "@sqweb/gui-session";
 import type { GuiWorkspaceService } from "@sqweb/gui-workspace";
+import type { WebWorkspaceService } from "@sqweb/web-workspace";
 import type { SavedQueryService } from "@sqweb/saved-queries";
 import type { SectionService } from "@sqweb/sections";
 import type { WorkspaceService } from "@sqweb/workspace";
@@ -27,6 +28,7 @@ import {
   guiSessionCreateRequestSchema,
   interactiveExecutionLimits,
   javaGuiWorkspaceSaveRequestSchema,
+  webWorkspaceSaveRequestSchema,
   maintenanceUpdateRequestSchema,
   profileUpdateRequestSchema,
   registrationRequestSchema,
@@ -77,6 +79,7 @@ export interface PlatformServerDependencies {
   readonly workspace: WorkspaceService;
   readonly erd: ErdService;
   readonly codeWorkspace: CodeWorkspaceService;
+  readonly webWorkspace: WebWorkspaceService;
   readonly savedQuery: SavedQueryService;
   readonly guiWorkspace: GuiWorkspaceService;
   readonly guiSession: GuiSessionService;
@@ -185,11 +188,11 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
     return reply.code(201).send(account);
   });
 
-  server.get("/v1/sections", async (request) => {
+  server.get("/v1/sections", async () => {
     return dependencies.section.listPublic();
   });
 
-  server.get("/v1/system/status", async (request) => {
+  server.get("/v1/system/status", async () => {
     return dependencies.identity.getSystemStatus();
   });
 
@@ -582,6 +585,29 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
     );
     const body = codeWorkspaceSaveRequestSchema.parse(request.body);
     return dependencies.codeWorkspace.save(verified, body);
+  });
+
+  server.get("/v1/web-workspace", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    await dependencies.section.assertWorkspaceUnlocked(
+      verified,
+      "web-workspace",
+    );
+    return dependencies.webWorkspace.get(verified);
+  });
+
+  server.put("/v1/web-workspace", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    await dependencies.section.assertWorkspaceUnlocked(
+      verified,
+      "web-workspace",
+    );
+    const body = webWorkspaceSaveRequestSchema.parse(request.body);
+    return dependencies.webWorkspace.save(verified, body);
   });
 
   server.get("/v1/gui-workspace", async (request) => {

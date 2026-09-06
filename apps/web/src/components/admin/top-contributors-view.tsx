@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Code2,
   Database,
+  Globe,
   Network,
   Trophy,
 } from "lucide-react";
@@ -27,6 +28,7 @@ const breakdownFields: readonly {
     | "erdDiagramCount"
     | "savedQueryCount"
     | "guiSessionCount"
+    | "webFileCount"
   >;
   label: string;
   icon: typeof Database;
@@ -36,6 +38,7 @@ const breakdownFields: readonly {
   { key: "erdDiagramCount", label: "ERD", icon: Network },
   { key: "savedQueryCount", label: "Saved", icon: Bookmark },
   { key: "guiSessionCount", label: "GUI", icon: AppWindow },
+  { key: "webFileCount", label: "Web", icon: Globe },
 ];
 
 export function TopContributorsView() {
@@ -91,8 +94,8 @@ export function TopContributorsView() {
           Student leaderboard
         </h3>
         <p className="text-ink-muted mt-0.5 text-xs">
-          Ranked by total activity across SQL, code, ERD, saved queries, and
-          Java GUI work — with the subset that actually succeeded called out
+          Ranked by total activity across SQL, code, ERD, saved queries, Java
+          GUI, and web work — with the subset that actually succeeded called out
           separately.
         </p>
       </div>

@@ -12,5 +12,6 @@ export * from "./saved-query-repository";
 export * from "./schema";
 export * from "./section-repository";
 export * from "./usage-reader";
+export * from "./web-workspace-repository";
 export * from "./workspace-repository";
 export * from "./workspace-provisioning-repository";

@@ -12,6 +12,8 @@ The first migration establishes identity and institution membership records for 
 
 `0010_sections.sql` adds an admin-managed `sections` table (e.g. "BSIT-3A") and a nullable `users.section_id` referencing it. Students pick one at registration; removing a section sets `archived_at` instead of deleting the row, so students already in it keep their history. Same locally-applies-via-script caveat as above.
 
-`0011_section_workspace_locks.sql` adds a nullable `sections.locked_workspaces_json` column — an admin-set array of workspace kinds (`sql-workbench`, `code-compiler`, `erd-editor`, `saved-queries`) that are locked for students in that section; NULL/absent means nothing is locked. Teachers are never affected by this column, regardless of section membership. Same locally-applies-via-script caveat as above.
+`0011_section_workspace_locks.sql` adds a nullable `sections.locked_workspaces_json` column — an admin-set array of workspace kinds (`sql-workbench`, `code-compiler`, `erd-editor`, `saved-queries`, `java-gui-workspace`, `web-workspace`) that are locked for students in that section; NULL/absent means nothing is locked. Teachers are never affected by this column, regardless of section membership. Same locally-applies-via-script caveat as above.
+
+`0014_web_workspace.sql` adds one owner-unique `web_workspaces` row per user. Its JSON content stores the HTML/CSS/JavaScript file tree; authored JavaScript is rendered only in the browser preview and is never executed by a backend service. Same locally-applies-via-script caveat as above.
 
 Future migration files must use ordered immutable identifiers, include verification tests, and never contain secrets or production data.

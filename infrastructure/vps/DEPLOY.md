@@ -249,6 +249,28 @@ pointless before you have a domain to issue against.
 
 ## 8. Redeploying after a code change
 
+If a release contains a new incremental platform migration, pull the code
+first without restarting any service, apply and verify the migration against
+the running `mysql` container, and only then rebuild the affected API. For
+example:
+
+```bash
+cd ~/CodeForge
+git pull
+docker compose -f infrastructure/vps/docker-compose.prod.yml --env-file infrastructure/vps/.env.prod exec -T mysql \
+  sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" sqweb_platform' \
+  < packages/database-platform/migrations/0014_web_workspace.sql
+docker compose -f infrastructure/vps/docker-compose.prod.yml --env-file infrastructure/vps/.env.prod exec -T mysql \
+  sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" sqweb_platform -e "SHOW TABLES LIKE '\''web_workspaces'\'';"'
+docker compose -f infrastructure/vps/docker-compose.prod.yml --env-file infrastructure/vps/.env.prod up -d --build platform-api
+docker compose -f infrastructure/vps/docker-compose.prod.yml exec nginx nginx -s reload
+```
+
+The migration must be verified before the new API starts. A normal restart
+does not rerun files from `docker-entrypoint-initdb.d` on an existing volume.
+Coordinate the Vercel frontend release with this backend sequence when the new
+frontend depends on the migrated API.
+
 ```bash
 cd ~/CodeForge
 git pull
@@ -288,7 +310,7 @@ resolve.)
   defaulting to a random `apps/*` backend service and a "Fastify" preset).
 - **Install Command**: override the default. Vercel's build environment
   installs with devDependencies stripped (same as `NODE_ENV=production
-  npm install` anywhere), but `next build` type-checks test files too,
+npm install` anywhere), but `next build` type-checks test files too,
   and those import `vitest`/`@testing-library/react`/`axe-core` — all
   root-level devDependencies. The build fails with a wall of
   `Cannot find module` `TS2307` errors otherwise. Set it to:
@@ -298,7 +320,7 @@ resolve.)
   (keep the `--prefix=../..` — that's what installs from the monorepo
   root correctly; `--include=dev` is the only addition needed.)
 - **Environment variables** (Project Settings → Environment Variables —
-  the `NEXT_PUBLIC_*` ones are baked into the client bundle at *build*
+  the `NEXT_PUBLIC_*` ones are baked into the client bundle at _build_
   time, so set them before the first deploy, not after):
   - `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`,
     `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID` —

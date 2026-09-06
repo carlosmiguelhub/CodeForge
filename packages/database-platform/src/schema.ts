@@ -419,6 +419,28 @@ export const codeWorkspaces = mysqlTable(
   (table) => [uniqueIndex("code_workspaces_owner_uq").on(table.ownerId)],
 );
 
+export const webWorkspaces = mysqlTable(
+  "web_workspaces",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    ownerId: char("owner_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    content: json("content").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [uniqueIndex("web_workspaces_owner_uq").on(table.ownerId)],
+);
+
 export const codeExecutions = mysqlTable(
   "code_executions",
   {
@@ -606,6 +628,7 @@ export const platformSchema = {
   sections,
   templateVersions,
   users,
+  webWorkspaces,
   workspaceAllocations,
   workspacePoolInstances,
   workspaceResets,

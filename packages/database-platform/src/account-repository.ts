@@ -37,6 +37,7 @@ import {
   sections,
   templateVersions,
   users,
+  webWorkspaces,
   workspaceAllocations,
   workspaceResets,
   workspaces,
@@ -393,6 +394,9 @@ export class MySqlAccountRepository implements AccountRepository {
       await transaction
         .delete(codeWorkspaces)
         .where(eq(codeWorkspaces.ownerId, userId));
+      await transaction
+        .delete(webWorkspaces)
+        .where(eq(webWorkspaces.ownerId, userId));
       await transaction
         .delete(erdDiagrams)
         .where(eq(erdDiagrams.ownerId, userId));

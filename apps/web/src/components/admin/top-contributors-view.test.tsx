@@ -18,13 +18,14 @@ const items = [
     rank: 1,
     displayName: "Ada Lovelace",
     sectionName: "BSIT-3A",
-    contributionScore: 42,
+    contributionScore: 44,
     successfulWorkCount: 30,
     sqlExecutionCount: 20,
     codeExecutionCount: 10,
     erdDiagramCount: 5,
     savedQueryCount: 4,
     guiSessionCount: 3,
+    webFileCount: 2,
   },
   {
     id: "00000000-0000-4000-8000-000000000002",
@@ -38,6 +39,7 @@ const items = [
     erdDiagramCount: 1,
     savedQueryCount: 1,
     guiSessionCount: 1,
+    webFileCount: 0,
   },
 ];
 
@@ -66,8 +68,9 @@ describe("TopContributorsView", () => {
     await waitFor(() =>
       expect(screen.getByText("Ada Lovelace")).toBeInTheDocument(),
     );
-    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("44")).toBeInTheDocument();
     expect(screen.getByText("30 successful")).toBeInTheDocument();
+    expect(screen.getByText("Web 2")).toBeInTheDocument();
   });
 
   it("renders a full-width meter bar for the top scorer", async () => {
@@ -79,8 +82,8 @@ describe("TopContributorsView", () => {
       expect(screen.getByText("Ada Lovelace")).toBeInTheDocument(),
     );
     const [topMeter] = screen.getAllByRole("meter");
-    expect(topMeter).toHaveAttribute("aria-valuenow", "42");
-    expect(topMeter).toHaveAttribute("aria-valuemax", "42");
+    expect(topMeter).toHaveAttribute("aria-valuenow", "44");
+    expect(topMeter).toHaveAttribute("aria-valuemax", "44");
   });
 
   it("shows an honest empty state with no contributors yet", async () => {

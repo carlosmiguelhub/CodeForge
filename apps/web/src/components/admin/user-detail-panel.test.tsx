@@ -38,6 +38,7 @@ const usage = {
   workspaceState: "ready",
   erdDiagramCount: 2,
   codeFileCount: 5,
+  webFileCount: 3,
   savedQueryCount: 1,
   sqlExecutionCount: 10,
   codeExecutionCount: 3,

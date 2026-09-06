@@ -23,16 +23,14 @@ describe("RequestVerifier", () => {
       code: "AUTHENTICATION_REQUIRED",
       statusCode: 401,
     });
-    await expect(
-      verifier.verify("Bearer first second"),
-    ).rejects.toMatchObject({ code: "AUTHENTICATION_REQUIRED" });
+    await expect(verifier.verify("Bearer first second")).rejects.toMatchObject({
+      code: "AUTHENTICATION_REQUIRED",
+    });
   });
 
   it("verifies the identity with revocation checking", async () => {
     const { verifier, tokens } = setup();
-    await expect(verifier.verify("Bearer identity")).resolves.toEqual(
-      identity,
-    );
+    await expect(verifier.verify("Bearer identity")).resolves.toEqual(identity);
     expect(tokens.verifyIdToken).toHaveBeenCalledWith("identity", true);
   });
 

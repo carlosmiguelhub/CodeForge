@@ -50,7 +50,9 @@ describe("ContinuePage", () => {
     mocks.state = "unregistered";
     mocks.account = null;
     mocks.error = null;
-    mocks.publicFetch.mockResolvedValue(new Response(JSON.stringify([section])));
+    mocks.publicFetch.mockResolvedValue(
+      new Response(JSON.stringify([section])),
+    );
   });
 
   it("lets the student pick a section and retry when the stored one didn't survive email verification", async () => {

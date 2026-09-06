@@ -1,9 +1,13 @@
 import type {
   CodeWorkspaceContent,
   TopContributorRecord,
+  WebWorkspaceContent,
   WorkspaceUsageStat,
 } from "@sqweb/contracts";
-import { countCodeWorkspaceFiles } from "@sqweb/contracts";
+import {
+  countCodeWorkspaceFiles,
+  countWebWorkspaceFiles,
+} from "@sqweb/contracts";
 import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { MySql2Database } from "drizzle-orm/mysql2";
 
@@ -19,6 +23,7 @@ import {
   savedQueries,
   sections,
   users,
+  webWorkspaces,
   workspaces,
 } from "./schema";
 
@@ -34,6 +39,7 @@ export interface UserUsageSummary {
   workspaceState: string | null;
   erdDiagramCount: number;
   codeFileCount: number;
+  webFileCount: number;
   savedQueryCount: number;
   sqlExecutionCount: number;
   codeExecutionCount: number;
@@ -88,6 +94,7 @@ export class MySqlUsageReader {
       [workspaceRow],
       [erdRow],
       [codeWorkspaceRow],
+      [webWorkspaceRow],
       [savedQueryRow],
       [sqlExecRow],
       [codeExecRow],
@@ -113,6 +120,13 @@ export class MySqlUsageReader {
         })
         .from(codeWorkspaces)
         .where(eq(codeWorkspaces.ownerId, ownerId)),
+      this.database
+        .select({
+          content: webWorkspaces.content,
+          updatedAt: webWorkspaces.updatedAt,
+        })
+        .from(webWorkspaces)
+        .where(eq(webWorkspaces.ownerId, ownerId)),
       this.database
         .select({
           count: sql<number>`COUNT(*)`,
@@ -147,6 +161,7 @@ export class MySqlUsageReader {
       workspaceRow?.updatedAt,
       erdRow?.lastUpdated,
       codeWorkspaceRow?.updatedAt,
+      webWorkspaceRow?.updatedAt,
       savedQueryRow?.lastUpdated,
       sqlExecRow?.lastStarted,
       codeExecRow?.lastStarted,
@@ -166,6 +181,11 @@ export class MySqlUsageReader {
       codeFileCount: codeWorkspaceRow
         ? countCodeWorkspaceFiles(
             (codeWorkspaceRow.content as CodeWorkspaceContent).root,
+          )
+        : 0,
+      webFileCount: webWorkspaceRow
+        ? countWebWorkspaceFiles(
+            (webWorkspaceRow.content as WebWorkspaceContent).root,
           )
         : 0,
       savedQueryCount: Number(savedQueryRow?.count ?? 0),
@@ -197,6 +217,8 @@ export class MySqlUsageReader {
       savedDaily,
       guiTotal,
       guiDaily,
+      webTotal,
+      webDaily,
     ] = await Promise.all([
       this.database
         .select({ count: sql<number>`COUNT(*)` })
@@ -283,6 +305,23 @@ export class MySqlUsageReader {
           ),
         )
         .groupBy(sql`DATE(${guiSessions.createdAt})`),
+      this.database
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(webWorkspaces)
+        .where(eq(webWorkspaces.institutionId, institutionId)),
+      this.database
+        .select({
+          day: sql`DATE(${webWorkspaces.updatedAt})`,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(webWorkspaces)
+        .where(
+          and(
+            eq(webWorkspaces.institutionId, institutionId),
+            gte(webWorkspaces.updatedAt, since),
+          ),
+        )
+        .groupBy(sql`DATE(${webWorkspaces.updatedAt})`),
     ]);
 
     const dateRange = lastNDates(USAGE_WINDOW_DAYS);
@@ -321,82 +360,101 @@ export class MySqlUsageReader {
         totalCount: Number(guiTotal[0]?.count ?? 0),
         dailyCounts: toDailyCounts(guiDaily),
       },
+      {
+        workspace: "web-workspace",
+        totalCount: Number(webTotal[0]?.count ?? 0),
+        dailyCounts: toDailyCounts(webDaily),
+      },
     ];
   }
 
   // A leaderboard of active students ranked by total activity across every
   // workspace kind ("contribution"), with a separate tally of the subset
   // that actually succeeded (a passing SQL run, an accepted code run, a GUI
-  // session that made it to running/stopped) — five parallel per-owner
+  // session that made it to running/stopped) — six parallel per-owner
   // GROUP BYs merged in application code, the same shape as
   // `getWorkspaceUsageStats` above, rather than one large multi-join query.
   async getTopContributors(
     institutionId: string,
     limit: number,
   ): Promise<TopContributorRecord[]> {
-    const [students, sqlStats, codeStats, erdCounts, savedCounts, guiStats] =
-      await Promise.all([
-        this.database
-          .select({
-            id: users.id,
-            displayName: users.displayName,
-            sectionName: sections.name,
-          })
-          .from(users)
-          .innerJoin(
-            institutionMemberships,
-            and(
-              eq(institutionMemberships.userId, users.id),
-              eq(institutionMemberships.institutionId, institutionId),
-              eq(institutionMemberships.role, "student"),
-            ),
-          )
-          .leftJoin(sections, eq(sections.id, users.sectionId))
-          .where(eq(users.status, "active")),
-        this.database
-          .select({
-            actorId: queryExecutions.actorId,
-            total: sql<number>`COUNT(*)`,
-            successful: sql<number>`SUM(${queryExecutions.state} = 'successful')`,
-          })
-          .from(queryExecutions)
-          .where(eq(queryExecutions.institutionId, institutionId))
-          .groupBy(queryExecutions.actorId),
-        this.database
-          .select({
-            actorId: codeExecutions.actorId,
-            total: sql<number>`COUNT(*)`,
-            successful: sql<number>`SUM(${codeExecutions.status} = 'accepted')`,
-          })
-          .from(codeExecutions)
-          .where(eq(codeExecutions.institutionId, institutionId))
-          .groupBy(codeExecutions.actorId),
-        this.database
-          .select({
-            ownerId: erdDiagrams.ownerId,
-            total: sql<number>`COUNT(*)`,
-          })
-          .from(erdDiagrams)
-          .where(eq(erdDiagrams.institutionId, institutionId))
-          .groupBy(erdDiagrams.ownerId),
-        this.database
-          .select({
-            ownerId: savedQueries.ownerId,
-            total: sql<number>`COUNT(*)`,
-          })
-          .from(savedQueries)
-          .where(eq(savedQueries.institutionId, institutionId))
-          .groupBy(savedQueries.ownerId),
-        this.database
-          .select({
-            ownerId: guiSessions.ownerId,
-            total: sql<number>`COUNT(*)`,
-            successful: sql<number>`SUM(${guiSessions.state} IN ('running', 'stopped'))`,
-          })
-          .from(guiSessions)
-          .where(eq(guiSessions.institutionId, institutionId))
-          .groupBy(guiSessions.ownerId),
-      ]);
+    const [
+      students,
+      sqlStats,
+      codeStats,
+      erdCounts,
+      savedCounts,
+      guiStats,
+      webWorkspaceRows,
+    ] = await Promise.all([
+      this.database
+        .select({
+          id: users.id,
+          displayName: users.displayName,
+          sectionName: sections.name,
+        })
+        .from(users)
+        .innerJoin(
+          institutionMemberships,
+          and(
+            eq(institutionMemberships.userId, users.id),
+            eq(institutionMemberships.institutionId, institutionId),
+            eq(institutionMemberships.role, "student"),
+          ),
+        )
+        .leftJoin(sections, eq(sections.id, users.sectionId))
+        .where(eq(users.status, "active")),
+      this.database
+        .select({
+          actorId: queryExecutions.actorId,
+          total: sql<number>`COUNT(*)`,
+          successful: sql<number>`SUM(${queryExecutions.state} = 'successful')`,
+        })
+        .from(queryExecutions)
+        .where(eq(queryExecutions.institutionId, institutionId))
+        .groupBy(queryExecutions.actorId),
+      this.database
+        .select({
+          actorId: codeExecutions.actorId,
+          total: sql<number>`COUNT(*)`,
+          successful: sql<number>`SUM(${codeExecutions.status} = 'accepted')`,
+        })
+        .from(codeExecutions)
+        .where(eq(codeExecutions.institutionId, institutionId))
+        .groupBy(codeExecutions.actorId),
+      this.database
+        .select({
+          ownerId: erdDiagrams.ownerId,
+          total: sql<number>`COUNT(*)`,
+        })
+        .from(erdDiagrams)
+        .where(eq(erdDiagrams.institutionId, institutionId))
+        .groupBy(erdDiagrams.ownerId),
+      this.database
+        .select({
+          ownerId: savedQueries.ownerId,
+          total: sql<number>`COUNT(*)`,
+        })
+        .from(savedQueries)
+        .where(eq(savedQueries.institutionId, institutionId))
+        .groupBy(savedQueries.ownerId),
+      this.database
+        .select({
+          ownerId: guiSessions.ownerId,
+          total: sql<number>`COUNT(*)`,
+          successful: sql<number>`SUM(${guiSessions.state} IN ('running', 'stopped'))`,
+        })
+        .from(guiSessions)
+        .where(eq(guiSessions.institutionId, institutionId))
+        .groupBy(guiSessions.ownerId),
+      this.database
+        .select({
+          ownerId: webWorkspaces.ownerId,
+          content: webWorkspaces.content,
+        })
+        .from(webWorkspaces)
+        .where(eq(webWorkspaces.institutionId, institutionId)),
+    ]);
 
     const sqlByActor = new Map(sqlStats.map((row) => [row.actorId, row]));
     const codeByActor = new Map(codeStats.map((row) => [row.actorId, row]));
@@ -407,6 +465,12 @@ export class MySqlUsageReader {
       savedCounts.map((row) => [row.ownerId, Number(row.total)]),
     );
     const guiByOwner = new Map(guiStats.map((row) => [row.ownerId, row]));
+    const webByOwner = new Map(
+      webWorkspaceRows.map((row) => [
+        row.ownerId,
+        countWebWorkspaceFiles((row.content as WebWorkspaceContent).root),
+      ]),
+    );
 
     return students
       .map((student) => {
@@ -418,6 +482,7 @@ export class MySqlUsageReader {
         const erdDiagramCount = erdByOwner.get(student.id) ?? 0;
         const savedQueryCount = savedByOwner.get(student.id) ?? 0;
         const guiSessionCount = Number(guiRow?.total ?? 0);
+        const webFileCount = webByOwner.get(student.id) ?? 0;
         return {
           id: student.id,
           displayName: student.displayName,
@@ -427,7 +492,8 @@ export class MySqlUsageReader {
             codeExecutionCount +
             erdDiagramCount +
             savedQueryCount +
-            guiSessionCount,
+            guiSessionCount +
+            webFileCount,
           successfulWorkCount:
             Number(sqlRow?.successful ?? 0) +
             Number(codeRow?.successful ?? 0) +
@@ -437,6 +503,7 @@ export class MySqlUsageReader {
           erdDiagramCount,
           savedQueryCount,
           guiSessionCount,
+          webFileCount,
         };
       })
       .sort((a, b) => {

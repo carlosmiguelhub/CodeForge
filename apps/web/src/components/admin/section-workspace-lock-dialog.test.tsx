@@ -27,7 +27,7 @@ describe("SectionWorkspaceLockDialog", () => {
     mocks.authorizedFetch.mockReset();
   });
 
-  it("renders all 5 workspace toggles with the section's current lock state", () => {
+  it("renders all 6 workspace toggles with the section's current lock state", () => {
     render(
       <SectionWorkspaceLockDialog
         section={section}
@@ -40,8 +40,9 @@ describe("SectionWorkspaceLockDialog", () => {
     expect(screen.getByText("ERD Editor")).toBeInTheDocument();
     expect(screen.getByText("Saved Queries")).toBeInTheDocument();
     expect(screen.getByText("Java GUI Workspace")).toBeInTheDocument();
+    expect(screen.getByText("Web Workspace")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Locked" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Unlocked" })).toHaveLength(4);
+    expect(screen.getAllByRole("button", { name: "Unlocked" })).toHaveLength(5);
   });
 
   it("toggles a workspace lock and saves via PATCH", async () => {

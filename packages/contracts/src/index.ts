@@ -13,3 +13,4 @@ export * from "./section";
 export * from "./system";
 export * from "./workspace";
 export * from "./workspace-kind";
+export * from "./web-workspace";

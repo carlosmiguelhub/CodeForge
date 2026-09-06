@@ -109,7 +109,13 @@ describe("DockerInteractiveRunManager", () => {
       modem: { demuxStream: vi.fn() },
     } as unknown as Docker;
     const manager = new DockerInteractiveRunManager(
-      { imageTag: "sqweb/code-runtime:test", memoryLimitMb: 512, cpuLimit: "1000m", tmpDir, hostTmpDir },
+      {
+        imageTag: "sqweb/code-runtime:test",
+        memoryLimitMb: 512,
+        cpuLimit: "1000m",
+        tmpDir,
+        hostTmpDir,
+      },
       docker,
     );
 

@@ -69,6 +69,7 @@ export const userUsageSummarySchema = z.object({
   workspaceState: workspaceStateSchema.nullable(),
   erdDiagramCount: z.number().int().nonnegative(),
   codeFileCount: z.number().int().nonnegative(),
+  webFileCount: z.number().int().nonnegative(),
   savedQueryCount: z.number().int().nonnegative(),
   sqlExecutionCount: z.number().int().nonnegative(),
   codeExecutionCount: z.number().int().nonnegative(),
@@ -258,6 +259,7 @@ export const topContributorRecordSchema = z.object({
   erdDiagramCount: z.number().int().nonnegative(),
   savedQueryCount: z.number().int().nonnegative(),
   guiSessionCount: z.number().int().nonnegative(),
+  webFileCount: z.number().int().nonnegative(),
 });
 export type TopContributorRecord = z.infer<typeof topContributorRecordSchema>;
 

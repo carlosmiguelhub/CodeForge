@@ -18,6 +18,8 @@ import type { ErdDiagramRepository } from "@sqweb/erd";
 import { ErdService } from "@sqweb/erd";
 import type { CodeWorkspaceRepository } from "@sqweb/code-workspace";
 import { CodeWorkspaceService } from "@sqweb/code-workspace";
+import type { WebWorkspaceRepository } from "@sqweb/web-workspace";
+import { WebWorkspaceService } from "@sqweb/web-workspace";
 import type { SavedQueryRepository } from "@sqweb/saved-queries";
 import { SavedQueryService } from "@sqweb/saved-queries";
 import type { JavaGuiWorkspaceRepository } from "@sqweb/gui-workspace";
@@ -255,6 +257,7 @@ async function setup(actor?: AccountProfile) {
       workspaceState: null,
       erdDiagramCount: 0,
       codeFileCount: 0,
+      webFileCount: 0,
       savedQueryCount: 0,
       sqlExecutionCount: 0,
       codeExecutionCount: 0,
@@ -267,6 +270,7 @@ async function setup(actor?: AccountProfile) {
       { workspace: "erd-editor", totalCount: 0, dailyCounts: [] },
       { workspace: "saved-queries", totalCount: 0, dailyCounts: [] },
       { workspace: "java-gui-workspace", totalCount: 0, dailyCounts: [] },
+      { workspace: "web-workspace", totalCount: 0, dailyCounts: [] },
     ]),
     getTopContributors: vi.fn().mockResolvedValue([]),
     resetActivityHistory: vi.fn().mockResolvedValue({
@@ -385,6 +389,26 @@ async function setup(actor?: AccountProfile) {
     }),
     save: vi.fn(),
   };
+  const blankWebWorkspaceContent = {
+    root: {
+      id: "root",
+      kind: "folder" as const,
+      name: "My files",
+      children: [],
+    },
+    expanded: [],
+    openFileIds: [],
+    activeFileId: "",
+  };
+  const webWorkspaceRepository: WebWorkspaceRepository = {
+    getOrCreate: vi.fn().mockResolvedValue({
+      ownerId: "unused",
+      content: blankWebWorkspaceContent,
+      createdAt: "2026-08-18T00:00:00.000Z",
+      updatedAt: "2026-08-18T00:00:00.000Z",
+    }),
+    save: vi.fn(),
+  };
   const workspaceService = new WorkspaceService({
     identity,
     workspaces: workspaceRepository,
@@ -433,6 +457,10 @@ async function setup(actor?: AccountProfile) {
       identity,
       workspaces: codeWorkspaceRepository,
     }),
+    webWorkspace: new WebWorkspaceService({
+      identity,
+      workspaces: webWorkspaceRepository,
+    }),
     savedQuery: new SavedQueryService({
       identity,
       verifyWorkspaceOwnership: async (verified, workspaceId) => {
@@ -467,6 +495,7 @@ async function setup(actor?: AccountProfile) {
     workspaceRepository,
     erdDiagramRepository,
     codeWorkspaceRepository,
+    webWorkspaceRepository,
     savedQueryRepository,
     guiWorkspaceRepository,
     guiSessionRepository,
@@ -1234,6 +1263,7 @@ describe("platform identity API", () => {
       { workspace: "erd-editor", totalCount: 0, dailyCounts: [] },
       { workspace: "saved-queries", totalCount: 0, dailyCounts: [] },
       { workspace: "java-gui-workspace", totalCount: 0, dailyCounts: [] },
+      { workspace: "web-workspace", totalCount: 0, dailyCounts: [] },
     ]);
   });
 
@@ -1473,7 +1503,6 @@ describe("platform identity API", () => {
     const statusResponse = await server.inject({
       method: "GET",
       url: "/v1/system/status",
-      
     });
     expect(statusResponse.json()).toEqual({
       maintenanceMode: true,
@@ -2226,6 +2255,131 @@ describe("platform code workspace API", () => {
       headers: { authorization: "Bearer code-teacher-locked" },
     });
     expect(response.statusCode).toBe(200);
+  });
+});
+
+describe("platform web workspace API", () => {
+  const student: AccountProfile = {
+    id: "00000000-0000-4000-8000-000000000091",
+    firebaseUid: "web-student",
+    email: "web-student@example.edu",
+    displayName: "Web Student",
+    institutionId,
+    status: "active",
+    roles: ["student"],
+    sectionId: null,
+    authorizationVersion: 1,
+  };
+  const workspace = {
+    ownerId: student.id,
+    content: {
+      root: {
+        id: "root",
+        kind: "folder" as const,
+        name: "My files",
+        children: [
+          {
+            id: "index",
+            kind: "file" as const,
+            name: "index.html",
+            sourceCode: "<h1>Hello</h1>",
+          },
+        ],
+      },
+      expanded: [],
+      openFileIds: ["index"],
+      activeFileId: "index",
+    },
+    createdAt: "2026-08-18T00:00:00.000Z",
+    updatedAt: "2026-08-18T00:00:00.000Z",
+  };
+
+  it("rejects an unauthenticated request", async () => {
+    const { server } = await setup();
+    const response = await server.inject({
+      method: "GET",
+      url: "/v1/web-workspace",
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("gets or creates the caller's own workspace", async () => {
+    const { server, webWorkspaceRepository } = await setup(student);
+    vi.mocked(webWorkspaceRepository.getOrCreate).mockResolvedValue(workspace);
+    const response = await server.inject({
+      method: "GET",
+      url: "/v1/web-workspace",
+      headers: { authorization: "Bearer web-student" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().ownerId).toBe(student.id);
+  });
+
+  it("validates and saves workspace content via PUT", async () => {
+    const { server, webWorkspaceRepository } = await setup(student);
+    vi.mocked(webWorkspaceRepository.save).mockResolvedValue({
+      ...workspace,
+      updatedAt: "2026-08-18T01:00:00.000Z",
+    });
+    const response = await server.inject({
+      method: "PUT",
+      url: "/v1/web-workspace",
+      headers: { authorization: "Bearer web-student" },
+      payload: { content: workspace.content },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(webWorkspaceRepository.save).toHaveBeenCalledWith(
+      institutionId,
+      student.id,
+      workspace.content,
+    );
+
+    const invalid = await server.inject({
+      method: "PUT",
+      url: "/v1/web-workspace",
+      headers: { authorization: "Bearer web-student" },
+      payload: {
+        content: {
+          ...workspace.content,
+          root: {
+            ...workspace.content.root,
+            children: [
+              {
+                id: "notes",
+                kind: "file",
+                name: "notes.txt",
+                sourceCode: "not allowed",
+              },
+            ],
+          },
+        },
+      },
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
+
+  it("blocks a student when web-workspace is locked for their section", async () => {
+    const lockedSectionId = "00000000-0000-4000-8000-000000000092";
+    const lockedStudent: AccountProfile = {
+      ...student,
+      firebaseUid: "web-student-locked",
+      sectionId: lockedSectionId,
+    };
+    const { server, sectionRepository } = await setup(lockedStudent);
+    vi.mocked(sectionRepository.findById).mockResolvedValue({
+      id: lockedSectionId,
+      name: "BSIT-3A",
+      archivedAt: null,
+      createdAt: "2026-08-18T00:00:00.000Z",
+      lockedWorkspaces: ["web-workspace"],
+    });
+    const response = await server.inject({
+      method: "GET",
+      url: "/v1/web-workspace",
+      headers: { authorization: "Bearer web-student-locked" },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe("WORKSPACE_LOCKED");
   });
 });
 

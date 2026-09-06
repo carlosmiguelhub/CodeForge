@@ -115,7 +115,11 @@ export default function ContinuePage() {
     return (
       <IdentityFrame
         eyebrow="Authorization check"
-        title={needsSection ? "Finish setting up your account" : "Could not reach CodeForge"}
+        title={
+          needsSection
+            ? "Finish setting up your account"
+            : "Could not reach CodeForge"
+        }
         description={
           needsSection
             ? "Your section selection didn't carry over (this can happen if you verified your email on a different device). Pick your section to finish."
@@ -159,9 +163,7 @@ export default function ContinuePage() {
           ) : null}
           <button
             type="button"
-            disabled={
-              retrying || (needsSection && !selectedSectionId)
-            }
+            disabled={retrying || (needsSection && !selectedSectionId)}
             onClick={() =>
               void (auth.state === "sync_error"
                 ? retrySync()

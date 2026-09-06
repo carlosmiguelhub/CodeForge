@@ -6,6 +6,7 @@ export const workspaceKindSchema = z.enum([
   "erd-editor",
   "saved-queries",
   "java-gui-workspace",
+  "web-workspace",
 ]);
 export type WorkspaceKind = z.infer<typeof workspaceKindSchema>;
 
@@ -15,4 +16,5 @@ export const workspaceKindLabels: Record<WorkspaceKind, string> = {
   "erd-editor": "ERD Editor",
   "saved-queries": "Saved Queries",
   "java-gui-workspace": "Java GUI Workspace",
+  "web-workspace": "Web Workspace",
 };

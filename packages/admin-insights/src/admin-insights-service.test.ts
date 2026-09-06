@@ -61,6 +61,7 @@ describe("AdminInsightsService", () => {
           workspaceState: "ready",
           erdDiagramCount: 2,
           codeFileCount: 5,
+          webFileCount: 3,
           savedQueryCount: 1,
           sqlExecutionCount: 10,
           codeExecutionCount: 3,
@@ -73,6 +74,7 @@ describe("AdminInsightsService", () => {
           { workspace: "erd-editor", totalCount: 2, dailyCounts: [] },
           { workspace: "saved-queries", totalCount: 1, dailyCounts: [] },
           { workspace: "java-gui-workspace", totalCount: 4, dailyCounts: [] },
+          { workspace: "web-workspace", totalCount: 3, dailyCounts: [] },
         ]),
         getTopContributors: vi.fn().mockResolvedValue([
           {
@@ -80,13 +82,14 @@ describe("AdminInsightsService", () => {
             rank: 1,
             displayName: target.displayName,
             sectionName: "BSIT-3A",
-            contributionScore: 20,
+            contributionScore: 23,
             successfulWorkCount: 12,
             sqlExecutionCount: 10,
             codeExecutionCount: 3,
             erdDiagramCount: 2,
             savedQueryCount: 1,
             guiSessionCount: 4,
+            webFileCount: 3,
           },
         ]),
         resetActivityHistory: vi.fn().mockResolvedValue({
@@ -166,6 +169,7 @@ describe("AdminInsightsService", () => {
       { workspace: "erd-editor", totalCount: 2, dailyCounts: [] },
       { workspace: "saved-queries", totalCount: 1, dailyCounts: [] },
       { workspace: "java-gui-workspace", totalCount: 4, dailyCounts: [] },
+      { workspace: "web-workspace", totalCount: 3, dailyCounts: [] },
     ]);
   });
 
@@ -221,7 +225,7 @@ describe("AdminInsightsService", () => {
       25,
     );
     expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({ rank: 1, contributionScore: 20 });
+    expect(result.items[0]).toMatchObject({ rank: 1, contributionScore: 23 });
   });
 
   it("resets activity history and records an audit event with the reason", async () => {

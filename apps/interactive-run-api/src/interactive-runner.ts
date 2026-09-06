@@ -287,7 +287,9 @@ export class DockerInteractiveRunManager implements InteractiveRunManager {
   }
 
   private isOwnedTempDirectory(path: string): boolean {
-    const tempRoot = resolve(this.options.hostTmpDir ?? this.options.tmpDir ?? tmpdir());
+    const tempRoot = resolve(
+      this.options.hostTmpDir ?? this.options.tmpDir ?? tmpdir(),
+    );
     const candidate = resolve(path);
     const pathWithinTemp = relative(tempRoot, candidate);
     return (

@@ -38,6 +38,10 @@ const sectionsMigrationUrl = new URL(
   "../migrations/0010_sections.sql",
   import.meta.url,
 );
+const webWorkspaceMigrationUrl = new URL(
+  "../migrations/0014_web_workspace.sql",
+  import.meta.url,
+);
 
 describe("identity migration boundary", () => {
   it("creates only identity, membership, and audit platform tables", async () => {
@@ -187,5 +191,21 @@ describe("sections migration boundary", () => {
     // students' historical section reference must survive a removal.
     expect(sql).toContain("archived_at TIMESTAMP(3) NULL");
     expect(sql).not.toMatch(/DROP TABLE|DELETE FROM/i);
+  });
+});
+
+describe("web workspace migration boundary", () => {
+  it("creates one owner-unique JSON workspace without an execution table", async () => {
+    const sql = await readFile(webWorkspaceMigrationUrl, "utf8");
+    const tables = [...sql.matchAll(/CREATE TABLE ([a-z_]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(tables).toEqual(["web_workspaces"]);
+    expect(sql).toContain("UNIQUE KEY web_workspaces_owner_uq (owner_id)");
+    expect(sql).toContain(
+      "CONSTRAINT web_workspaces_owner_fk FOREIGN KEY (owner_id) REFERENCES users(id)",
+    );
+    expect(sql).toContain("content JSON NOT NULL");
+    expect(sql).not.toMatch(/execution|source_code|stdout|stdin/i);
   });
 });

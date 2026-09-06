@@ -4,6 +4,7 @@ import { CodeWorkspaceService } from "@sqweb/code-workspace";
 import { ErdService } from "@sqweb/erd";
 import { GuiSessionService } from "@sqweb/gui-session";
 import { GuiWorkspaceService } from "@sqweb/gui-workspace";
+import { WebWorkspaceService } from "@sqweb/web-workspace";
 import { SavedQueryService } from "@sqweb/saved-queries";
 import { SectionService } from "@sqweb/sections";
 import { WorkspaceService } from "@sqweb/workspace";
@@ -20,6 +21,7 @@ import {
   MySqlSavedQueryRepository,
   MySqlSectionRepository,
   MySqlUsageReader,
+  MySqlWebWorkspaceRepository,
   MySqlWorkspaceRepository,
   platformSchema,
 } from "@sqweb/database-platform";
@@ -35,26 +37,25 @@ import {
 } from "./firebase-adapters";
 import { buildServer } from "./server";
 
-const environmentSchema = z
-  .object({
-    FIREBASE_PROJECT_ID: z.string().min(1),
-    FIREBASE_AUTH_EMULATOR_HOST: z.string().min(1).optional(),
-    PLATFORM_DATABASE_URL: z.string().min(1),
-    SQWEB_ALLOWED_ORIGINS: z.string().min(1),
-    SQWEB_DEFAULT_INSTITUTION_ID: z.string().uuid(),
-    SQWEB_EXECUTION_GRANT_SECRET: z.string().min(32),
-    GUI_SESSION_MAX_RUNTIME_SECONDS: z.coerce
-      .number()
-      .int()
-      .positive()
-      .default(600),
-    INTERACTIVE_RUN_MAX_RUNTIME_SECONDS: z.coerce
-      .number()
-      .int()
-      .positive()
-      .default(300),
-    PORT: z.coerce.number().int().positive().max(65_535).default(8080),
-  });
+const environmentSchema = z.object({
+  FIREBASE_PROJECT_ID: z.string().min(1),
+  FIREBASE_AUTH_EMULATOR_HOST: z.string().min(1).optional(),
+  PLATFORM_DATABASE_URL: z.string().min(1),
+  SQWEB_ALLOWED_ORIGINS: z.string().min(1),
+  SQWEB_DEFAULT_INSTITUTION_ID: z.string().uuid(),
+  SQWEB_EXECUTION_GRANT_SECRET: z.string().min(32),
+  GUI_SESSION_MAX_RUNTIME_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(600),
+  INTERACTIVE_RUN_MAX_RUNTIME_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(300),
+  PORT: z.coerce.number().int().positive().max(65_535).default(8080),
+});
 
 const environment = environmentSchema.parse(process.env);
 const firebaseApp =
@@ -119,6 +120,10 @@ const codeWorkspace = new CodeWorkspaceService({
   identity,
   workspaces: new MySqlCodeWorkspaceRepository(database),
 });
+const webWorkspace = new WebWorkspaceService({
+  identity,
+  workspaces: new MySqlWebWorkspaceRepository(database),
+});
 const savedQuery = new SavedQueryService({
   identity,
   // Reuses the ownership check WorkspaceService.getWorkspace already does
@@ -156,6 +161,7 @@ const server = await buildServer({
   workspace,
   erd,
   codeWorkspace,
+  webWorkspace,
   savedQuery,
   guiWorkspace,
   guiSession,

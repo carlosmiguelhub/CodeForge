@@ -5,6 +5,7 @@ import {
   CircleGauge,
   Code2,
   Database,
+  Globe,
   Layers,
   Network,
   ScrollText,
@@ -36,6 +37,11 @@ export const roleNavigation = {
       icon: Code2,
     },
     {
+      label: "Web Workspace",
+      href: "/student/web-workspace",
+      icon: Globe,
+    },
+    {
       label: "ERD Workspace",
       href: "/student/erd-workspace",
       icon: Network,
@@ -58,6 +64,11 @@ export const roleNavigation = {
       label: "Code Workspace",
       href: "/teacher/code-workspace",
       icon: Code2,
+    },
+    {
+      label: "Web Workspace",
+      href: "/teacher/web-workspace",
+      icon: Globe,
     },
     {
       label: "ERD Workspace",

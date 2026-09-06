@@ -169,6 +169,21 @@ async function main() {
       await connection.query(guiSessionMigration);
       console.log("GUI session migration applied.");
     }
+    const [webWorkspaceTables] = await connection.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS count FROM information_schema.tables
+       WHERE table_schema = DATABASE() AND table_name = 'web_workspaces'`,
+    );
+    if (Number(webWorkspaceTables[0]?.count ?? 0) === 0) {
+      const webWorkspaceMigration = await readFile(
+        new URL(
+          "../packages/database-platform/migrations/0014_web_workspace.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      );
+      await connection.query(webWorkspaceMigration);
+      console.log("Web workspace migration applied.");
+    }
   } finally {
     await connection.end();
   }

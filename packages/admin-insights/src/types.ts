@@ -28,6 +28,7 @@ export interface UserUsageSummary {
   readonly workspaceState: string | null;
   readonly erdDiagramCount: number;
   readonly codeFileCount: number;
+  readonly webFileCount: number;
   readonly savedQueryCount: number;
   readonly sqlExecutionCount: number;
   readonly codeExecutionCount: number;

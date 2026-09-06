@@ -14,6 +14,7 @@ import {
   Ban,
   Code2,
   Database,
+  Globe,
   KeyRound,
   Network,
   Plus,
@@ -642,6 +643,11 @@ export function UserDetailPanel({
                       value={String(usage.codeFileCount)}
                     />
                     <UsageTile
+                      icon={Globe}
+                      label="Web files"
+                      value={String(usage.webFileCount)}
+                    />
+                    <UsageTile
                       icon={Database}
                       label="Saved queries"
                       value={String(usage.savedQueryCount)}
@@ -687,8 +693,8 @@ export function UserDetailPanel({
                     <p className="text-ink-primary text-xs leading-5">
                       This permanently deletes {account.displayName}&apos;s
                       account, sign-in, and everything they own — workspaces,
-                      code files, ERD diagrams, saved queries, and execution
-                      history. This cannot be undone.
+                      code and web files, ERD diagrams, saved queries, and
+                      execution history. This cannot be undone.
                     </p>
                     <div className="mt-3 flex justify-end gap-2">
                       <button
