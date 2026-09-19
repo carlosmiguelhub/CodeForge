@@ -1,456 +1,357 @@
 "use client";
 
 import {
-  codeExecutionHistoryItemSchema,
-  codeWorkspaceSchema,
-  countCodeWorkspaceFiles,
-  erdDiagramSummarySchema,
-  workspaceSummarySchema,
-  type WorkspaceSummary,
+  activitySummaryForStudentSchema,
+  classSchema,
+  quizSummaryForStudentSchema,
+  raceSummaryForStudentSchema,
+  type ActivitySummaryForStudent,
+  type Class,
+  type QuizSummaryForStudent,
+  type RaceSummaryForStudent,
 } from "@sqweb/contracts";
 import {
-  ArrowRight,
-  Code2,
-  Database,
-  History,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  FileCode2,
+  Flag,
+  GraduationCap,
   Inbox,
-  Network,
-  SquareTerminal,
+  ListChecks,
+  Users,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
-import {
-  codeWorkspaceGuideSteps,
-  erdWorkspaceGuideSteps,
-  sqlWorkspaceGuideSteps,
-} from "./workspace-guide-content";
-import { WorkspaceGuideModal } from "./workspace-guide-modal";
-import {
-  CodeWorkspacePreview,
-  ErdWorkspacePreview,
-  SqlWorkspacePreview,
-} from "./workspace-preview";
+import { StatTile } from "@/components/dashboard/stat-tile";
+import { Spinner } from "@/components/ui/spinner";
+import { formatClosesIn, formatDate } from "@/lib/dashboard-format";
+import { DEFAULT_POLL_INTERVAL_MS, usePolling } from "@/lib/use-polling";
 
-const workspaceStateLabel: Readonly<Record<WorkspaceSummary["state"], string>> =
-  {
-    requested: "Requested",
-    provisioning: "Provisioning",
-    ready: "Ready",
-    resetting: "Resetting",
-    suspended: "Suspended",
-    failed: "Failed",
-    expired: "Expired",
-    deleting: "Deleting",
-    deleted: "Deleted",
-  };
-
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+interface TodoItem {
+  key: string;
+  kind: "activity" | "quiz" | "race";
+  classId: string;
+  className: string;
+  title: string;
+  href: string;
+  detail: string;
+  urgencyMs: number;
 }
 
-interface ActivityItem {
-  id: string;
-  kind: "sql" | "code" | "erd";
-  label: string;
-  detail: string;
-  timestamp: string;
+interface ClassBundle {
+  entry: Class;
+  activities: readonly ActivitySummaryForStudent[];
+  quizzes: readonly QuizSummaryForStudent[];
+  races: readonly RaceSummaryForStudent[];
 }
 
 export function StudentDashboard() {
-  const { authorizedFetch, executionFetch } = useAuth();
-  const [workspaces, setWorkspaces] = useState<
-    readonly WorkspaceSummary[] | null
-  >(null);
-  const [codeFileCount, setCodeFileCount] = useState<number | null>(null);
-  const [erdDiagramCount, setErdDiagramCount] = useState<number | null>(null);
-  const [activity, setActivity] = useState<readonly ActivityItem[] | null>(
-    null,
-  );
-  const [activeGuide, setActiveGuide] = useState<"sql" | "code" | "erd" | null>(
-    null,
-  );
+  const { authorizedFetch } = useAuth();
+  const [bundles, setBundles] = useState<readonly ClassBundle[] | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const workspacesRes = await authorizedFetch("/v1/workspaces");
-      if (cancelled) return;
-      if (workspacesRes.ok) {
-        setWorkspaces(
-          workspaceSummarySchema.array().parse(await workspacesRes.json()),
-        );
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    try {
+      const classesResponse = await authorizedFetch("/v1/classes/enrolled");
+      if (!classesResponse.ok)
+        throw new Error("Classes could not be loaded.");
+      const classes = classSchema.array().parse(await classesResponse.json());
+      const active = classes.filter((entry) => !entry.archivedAt);
+
+      const loaded = await Promise.all(
+        active.map(async (entry): Promise<ClassBundle> => {
+          const [activitiesRes, quizzesRes, racesRes] = await Promise.all([
+            authorizedFetch(`/v1/classes/${entry.id}/activities`),
+            authorizedFetch(`/v1/classes/${entry.id}/quizzes`),
+            authorizedFetch(`/v1/classes/${entry.id}/races`),
+          ]);
+          return {
+            entry,
+            activities: activitiesRes.ok
+              ? activitySummaryForStudentSchema
+                  .array()
+                  .parse(await activitiesRes.json())
+              : [],
+            quizzes: quizzesRes.ok
+              ? quizSummaryForStudentSchema
+                  .array()
+                  .parse(await quizzesRes.json())
+              : [],
+            races: racesRes.ok
+              ? raceSummaryForStudentSchema
+                  .array()
+                  .parse(await racesRes.json())
+              : [],
+          };
+        }),
+      );
+      setBundles(loaded);
+      setStatus(null);
+    } catch (loadError) {
+      setStatus(
+        loadError instanceof Error
+          ? loadError.message
+          : "The dashboard could not be loaded.",
+      );
+    }
   }, [authorizedFetch]);
 
-  const readyWorkspace = workspaces?.find(
-    (workspace) => workspace.state === "ready",
-  );
-  const workspace = workspaces?.[0] ?? null;
-
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const [workspaceRes, codeRes, codeHistoryRes, erdRes] = await Promise.all(
-        [
-          readyWorkspace
-            ? executionFetch(
-                `/v1/query-history?workspaceId=${encodeURIComponent(readyWorkspace.id)}`,
-              )
-            : null,
-          authorizedFetch("/v1/code-workspace"),
-          executionFetch("/v1/code-execution-history"),
-          authorizedFetch("/v1/erd-diagrams"),
-        ],
-      );
-      if (cancelled) return;
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
-      const items: ActivityItem[] = [];
+  usePolling(() => void load(), DEFAULT_POLL_INTERVAL_MS);
 
-      if (workspaceRes?.ok) {
-        const history = (await workspaceRes.json()) as {
-          id: string;
-          state: string;
-          statementClasses: readonly string[];
-          durationMs: number | null;
-          rowsReturned: number;
-          startedAt: string;
-        }[];
-        for (const item of history) {
-          items.push({
-            id: `sql-${item.id}`,
-            kind: "sql",
-            label: item.statementClasses.join(", ") || item.state,
-            detail: `${item.durationMs ?? 0} ms · ${item.rowsReturned} rows`,
-            timestamp: item.startedAt,
-          });
+  const stats = useMemo(() => {
+    if (!bundles) return null;
+    const totalClasses = bundles.length;
+
+    const todo: TodoItem[] = [];
+    let completedCount = 0;
+
+    for (const bundle of bundles) {
+      for (const activity of bundle.activities) {
+        const notSubmitted =
+          activity.attemptStatus === null ||
+          activity.attemptStatus === "in_progress";
+        if (!notSubmitted) {
+          completedCount += 1;
+          continue;
         }
+        if (activity.isLocked) continue;
+        todo.push({
+          key: `activity-${activity.id}`,
+          kind: "activity",
+          classId: bundle.entry.id,
+          className: bundle.entry.subjectName,
+          title: activity.title,
+          href: `/student/activities/${activity.id}`,
+          detail: activity.deadlineAt
+            ? `${activity.attemptStatus === "in_progress" ? "Continue" : "Not started"} · ${formatClosesIn(activity.deadlineAt)}`
+            : activity.attemptStatus === "in_progress"
+              ? "Continue"
+              : "Not started",
+          urgencyMs: activity.deadlineAt
+            ? Date.parse(activity.deadlineAt)
+            : Number.MAX_SAFE_INTEGER,
+        });
       }
-
-      if (codeRes.ok) {
-        const codeWorkspace = codeWorkspaceSchema.parse(await codeRes.json());
-        setCodeFileCount(countCodeWorkspaceFiles(codeWorkspace.content.root));
-      }
-
-      if (codeHistoryRes.ok) {
-        const history = codeExecutionHistoryItemSchema
-          .array()
-          .parse(await codeHistoryRes.json());
-        for (const item of history) {
-          items.push({
-            id: `code-${item.id}`,
-            kind: "code",
-            label: item.language,
-            detail: `${item.status.replaceAll("_", " ")}${item.timeMs !== null ? ` · ${item.timeMs} ms` : ""}`,
-            timestamp: item.startedAt,
-          });
+      for (const quiz of bundle.quizzes) {
+        const notSubmitted =
+          quiz.attemptStatus === null || quiz.attemptStatus === "in_progress";
+        if (!notSubmitted) {
+          completedCount += 1;
+          continue;
         }
+        if (quiz.availability !== "open") continue;
+        todo.push({
+          key: `quiz-${quiz.id}`,
+          kind: "quiz",
+          classId: bundle.entry.id,
+          className: bundle.entry.subjectName,
+          title: quiz.title,
+          href: `/student/quizzes/${quiz.id}`,
+          detail: `${quiz.attemptStatus === "in_progress" ? "Continue" : "Not started"} · ${formatClosesIn(quiz.closesAt)}`,
+          urgencyMs: Date.parse(quiz.closesAt),
+        });
       }
-
-      if (erdRes.ok) {
-        const diagrams = erdDiagramSummarySchema
-          .array()
-          .parse(await erdRes.json());
-        setErdDiagramCount(diagrams.length);
-        for (const diagram of diagrams) {
-          items.push({
-            id: `erd-${diagram.id}`,
-            kind: "erd",
-            label: diagram.name,
-            detail: "Diagram updated",
-            timestamp: diagram.updatedAt,
-          });
+      for (const race of bundle.races) {
+        const notSubmitted =
+          race.attemptStatus === null || race.attemptStatus === "in_progress";
+        if (!notSubmitted) {
+          completedCount += 1;
+          continue;
         }
+        if (race.availability !== "open") continue;
+        todo.push({
+          key: `race-${race.id}`,
+          kind: "race",
+          classId: bundle.entry.id,
+          className: bundle.entry.subjectName,
+          title: race.title,
+          href: `/student/races/${race.id}`,
+          detail: `${race.attemptStatus === "in_progress" ? "Continue" : "Not started"} · ${formatClosesIn(race.closesAt)}`,
+          urgencyMs: Date.parse(race.closesAt),
+        });
       }
+    }
+    todo.sort((a, b) => a.urgencyMs - b.urgencyMs);
 
-      items.sort(
+    const recentClasses = [...bundles]
+      .sort(
         (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-      );
-      setActivity(items.slice(0, 6));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [authorizedFetch, executionFetch, readyWorkspace]);
+          Date.parse(b.entry.createdAt) - Date.parse(a.entry.createdAt),
+      )
+      .slice(0, 4);
 
-  const activityIcon: Record<ActivityItem["kind"], typeof Database> = {
-    sql: SquareTerminal,
-    code: Code2,
-    erd: Network,
-  };
+    return { totalClasses, todo, completedCount, recentClasses };
+  }, [bundles]);
+
+  if (!bundles) {
+    return (
+      <div className="border-structural bg-surface rounded-panel flex items-center gap-3 border p-4">
+        <Spinner size={16} />
+        <p className="text-ink-muted text-xs">
+          {status ?? "Loading dashboard…"}
+        </p>
+      </div>
+    );
+  }
+
+  if (status) {
+    return (
+      <div className="border-danger/30 bg-danger/5 text-danger rounded-panel border p-4 text-sm">
+        {status}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile
-          icon={Database}
-          label="SQL Workspace"
-          value={workspace ? workspaceStateLabel[workspace.state] : "None yet"}
-        />
-        <StatTile
-          icon={Code2}
-          label="Code files"
-          value={codeFileCount === null ? "…" : String(codeFileCount)}
-        />
-        <StatTile
-          icon={Network}
-          label="ERD diagrams"
-          value={erdDiagramCount === null ? "…" : String(erdDiagramCount)}
-        />
-      </div>
+      <section>
+        <h2 className="font-heading text-ink-primary text-2xl font-semibold tracking-[-0.03em]">
+          Welcome back
+        </h2>
+        <p className="text-ink-muted mt-1 text-sm">
+          {stats!.totalClasses}{" "}
+          {stats!.totalClasses === 1 ? "class" : "classes"} ·{" "}
+          {stats!.todo.length} pending
+        </p>
+      </section>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-        <section
-          aria-labelledby="workspace-guides-title"
-          className="rounded-panel border-structural bg-deep border"
-        >
-          <div className="border-divider border-b px-4 py-3">
-            <h3
-              id="workspace-guides-title"
-              className="font-heading text-ink-primary text-base font-semibold"
-            >
-              Explore your workspaces
-            </h3>
-            <p className="text-ink-muted mt-0.5 text-xs">
-              A guided tour of what each one can do, with samples to try
-            </p>
-          </div>
-          <div className="grid gap-4 p-4 sm:grid-cols-3">
-            <WorkspaceGuideCard
-              icon={SquareTerminal}
-              label="SQL Workspace"
-              detail="Build schemas, insert data, and inspect query results in your own isolated MySQL database."
-              highlights={[
-                "Schema explorer and query history",
-                "Saved queries and ERD generation",
-                "Destructive-query safeguards",
-              ]}
-              stepCount={sqlWorkspaceGuideSteps.length}
-              preview={<SqlWorkspacePreview />}
-              onClick={() => setActiveGuide("sql")}
-            />
-            <WorkspaceGuideCard
-              icon={Code2}
-              label="Code Workspace"
-              detail="Organize programs and run them through a live console that responds as your code asks for input."
-              highlights={[
-                "Python, Java, C++, JavaScript, and C",
-                "Interactive prompts and stdin",
-                "Autosaved files and folders",
-              ]}
-              stepCount={codeWorkspaceGuideSteps.length}
-              preview={<CodeWorkspacePreview />}
-              onClick={() => setActiveGuide("code")}
-            />
-            <WorkspaceGuideCard
-              icon={Network}
-              label="ERD Workspace"
-              detail="Turn database ideas into readable diagrams with editable entities, attributes, and relationships."
-              highlights={[
-                "Crow's-foot and UML notation",
-                "Routed relationship lines",
-                "Autosave and PDF export",
-              ]}
-              stepCount={erdWorkspaceGuideSteps.length}
-              preview={<ErdWorkspacePreview />}
-              onClick={() => setActiveGuide("erd")}
-            />
-          </div>
-        </section>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <StatTile
+          icon={GraduationCap}
+          label="Classes enrolled"
+          value={stats!.totalClasses}
+        />
+        <StatTile
+          icon={Inbox}
+          label="Pending"
+          value={stats!.todo.length}
+          tone={stats!.todo.length > 0 ? "warning" : "neutral"}
+        />
+        <StatTile
+          icon={CheckCircle2}
+          label="Completed"
+          value={stats!.completedCount}
+        />
+      </section>
 
-        <section
-          aria-labelledby="activity-title"
-          className="rounded-panel border-structural bg-surface overflow-hidden border"
-        >
-          <div className="border-divider border-b px-4 py-3">
-            <h3
-              id="activity-title"
-              className="font-heading text-ink-primary text-base font-semibold"
-            >
-              Recent activity
-            </h3>
-            <p className="text-ink-muted mt-0.5 text-xs">
-              Across all three workspaces
-            </p>
-          </div>
-          {activity === null ? (
-            <EmptyState icon={History} text="Loading recent activity…" />
-          ) : activity.length === 0 ? (
-            <EmptyState
-              icon={History}
-              text="No activity yet — run a query, execute some code, or edit a diagram."
-            />
-          ) : (
-            <ul className="divide-divider divide-y">
-              {activity.map((item) => {
-                const Icon = activityIcon[item.kind];
-                return (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-3 px-4 py-3"
+      <section
+        aria-labelledby="todo-title"
+        className="border-structural bg-surface rounded-panel overflow-hidden border"
+      >
+        <div className="border-divider flex items-center justify-between border-b px-4 py-3">
+          <h3
+            id="todo-title"
+            className="font-heading text-ink-primary flex items-center gap-2 text-base font-semibold"
+          >
+            <ListChecks aria-hidden="true" size={15} />
+            To do
+          </h3>
+        </div>
+        {stats!.todo.length === 0 ? (
+          <p className="text-ink-muted p-4 text-xs">
+            Nothing open right now — you&apos;re all caught up.
+          </p>
+        ) : (
+          <ul className="divide-divider divide-y">
+            {stats!.todo.map((item) => {
+              const Icon =
+                item.kind === "activity"
+                  ? FileCode2
+                  : item.kind === "quiz"
+                    ? ClipboardList
+                    : Flag;
+              return (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className="hover:bg-panel flex items-center gap-3 px-4 py-3 text-sm"
                   >
-                    <span className="rounded-control border-divider bg-panel text-action-soft grid size-9 shrink-0 place-items-center border">
-                      <Icon aria-hidden="true" size={16} strokeWidth={1.7} />
+                    <span className="border-divider bg-elevated text-action-soft rounded-control grid size-8 shrink-0 place-items-center border">
+                      <Icon aria-hidden="true" size={14} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="text-ink-primary block truncate font-medium">
+                        {item.title}
+                      </span>
+                      <span className="text-ink-muted block truncate text-[11px]">
+                        {item.className}
+                      </span>
+                    </span>
+                    <span className="text-warning flex shrink-0 items-center gap-1 text-[11px] font-medium">
+                      <Clock3 aria-hidden="true" size={12} />
+                      {item.detail}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="my-classes-title">
+        <div className="mb-3 flex items-center justify-between">
+          <h3
+            id="my-classes-title"
+            className="font-heading text-ink-primary flex items-center gap-2 text-base font-semibold"
+          >
+            <GraduationCap aria-hidden="true" size={15} />
+            My classes
+          </h3>
+          <Link
+            href="/student/classes"
+            className="text-action-soft text-xs hover:underline"
+          >
+            View all →
+          </Link>
+        </div>
+        {stats!.recentClasses.length === 0 ? (
+          <p className="text-ink-muted text-xs">
+            You haven&apos;t joined a class yet.
+          </p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {stats!.recentClasses.map((bundle) => (
+              <li key={bundle.entry.id}>
+                <Link
+                  href={`/student/classes/${bundle.entry.id}`}
+                  className="border-structural bg-surface rounded-panel hover:border-action/50 block border p-4 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="border-divider bg-elevated text-action-soft rounded-control grid size-9 shrink-0 place-items-center border">
+                      <GraduationCap aria-hidden="true" size={16} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-ink-primary truncate text-sm font-medium capitalize">
-                        {item.label}
+                      <p className="text-ink-primary truncate text-sm font-semibold">
+                        {bundle.entry.subjectName}
                       </p>
-                      <p className="text-ink-muted mt-0.5 text-xs">
-                        {item.detail} · {timeAgo(item.timestamp)}
+                      <p className="text-ink-muted mt-0.5 truncate text-xs">
+                        {bundle.entry.sectionLabel} · {bundle.entry.teacherName}
                       </p>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
-
-      {activeGuide === "sql" ? (
-        <WorkspaceGuideModal
-          icon={SquareTerminal}
-          title="SQL Workspace guide"
-          description="A practical path from your first table to reusable queries and an ERD."
-          steps={sqlWorkspaceGuideSteps}
-          ctaLabel="Open SQL Workspace"
-          ctaHref="/student/workspaces"
-          onClose={() => setActiveGuide(null)}
-        />
-      ) : null}
-      {activeGuide === "code" ? (
-        <WorkspaceGuideModal
-          icon={Code2}
-          title="Code Workspace guide"
-          description="Learn the file workflow, supported languages, and live interactive Console."
-          steps={codeWorkspaceGuideSteps}
-          ctaLabel="Open Code Workspace"
-          ctaHref="/student/code-workspace"
-          onClose={() => setActiveGuide(null)}
-        />
-      ) : null}
-      {activeGuide === "erd" ? (
-        <WorkspaceGuideModal
-          icon={Network}
-          title="ERD Workspace guide"
-          description="Build readable entities and route clearly annotated relationships."
-          steps={erdWorkspaceGuideSteps}
-          ctaLabel="Open ERD Workspace"
-          ctaHref="/student/erd-workspace"
-          onClose={() => setActiveGuide(null)}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function StatTile({
-  icon: Icon,
-  label,
-  value,
-}: Readonly<{
-  icon: typeof Database;
-  label: string;
-  value: string;
-}>) {
-  return (
-    <div className="rounded-panel border-structural bg-surface flex items-center gap-3 border p-4">
-      <span className="rounded-control border-divider bg-panel text-info grid size-10 shrink-0 place-items-center border">
-        <Icon aria-hidden="true" size={18} strokeWidth={1.7} />
-      </span>
-      <div className="min-w-0">
-        <p className="text-ink-primary text-lg font-semibold">{value}</p>
-        <p className="text-ink-muted text-xs">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({
-  icon: Icon,
-  text,
-}: Readonly<{ icon: typeof Inbox; text: string }>) {
-  return (
-    <div className="grid min-h-32 place-items-center px-6 py-8 text-center">
-      <div>
-        <Icon
-          aria-hidden="true"
-          className="text-ink-disabled mx-auto mb-2"
-          size={20}
-        />
-        <p className="text-ink-muted max-w-xs text-xs leading-5">{text}</p>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceGuideCard({
-  icon: Icon,
-  label,
-  detail,
-  highlights,
-  stepCount,
-  preview,
-  onClick,
-}: Readonly<{
-  icon: typeof Code2;
-  label: string;
-  detail: string;
-  highlights: readonly string[];
-  stepCount: number;
-  preview: ReactNode;
-  onClick: () => void;
-}>) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="border-structural bg-surface hover:border-action/40 group rounded-panel flex flex-col items-start overflow-hidden border text-left transition-colors"
-    >
-      {preview}
-      <div className="group-hover:bg-elevated flex w-full flex-1 flex-col items-start gap-3 p-5 transition-colors">
-        <span className="rounded-control border-divider bg-panel text-action-soft grid size-11 shrink-0 place-items-center border">
-          <Icon aria-hidden="true" size={20} strokeWidth={1.7} />
-        </span>
-        <div className="flex-1">
-          <p className="text-ink-primary text-sm font-semibold">{label}</p>
-          <p className="text-ink-muted mt-1 text-xs leading-5">{detail}</p>
-          <ul className="mt-3 space-y-1.5">
-            {highlights.map((highlight) => (
-              <li
-                key={highlight}
-                className="text-ink-secondary flex items-start gap-2 text-[11px] leading-4"
-              >
-                <span
-                  aria-hidden="true"
-                  className="bg-action-soft mt-1.5 size-1 shrink-0 rounded-full"
-                />
-                {highlight}
+                  </div>
+                  <div className="text-ink-muted mt-3 flex items-center justify-between text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <Users aria-hidden="true" size={12} />
+                      {bundle.entry.memberCount}{" "}
+                      {bundle.entry.memberCount === 1 ? "student" : "students"}
+                    </span>
+                    <span>{formatDate(bundle.entry.createdAt)}</span>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
-        </div>
-        <span className="text-action-soft flex items-center gap-1 text-xs font-medium">
-          View {stepCount}-step guide
-          <ArrowRight
-            aria-hidden="true"
-            size={13}
-            className="transition-transform group-hover:translate-x-0.5"
-          />
-        </span>
-      </div>
-    </button>
+        )}
+      </section>
+    </div>
   );
 }

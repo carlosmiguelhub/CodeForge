@@ -2,9 +2,11 @@ import {
   bigint,
   boolean,
   char,
+  double,
   index,
   int,
   json,
+  mediumtext,
   mysqlEnum,
   mysqlTable,
   smallint,
@@ -464,6 +466,503 @@ export const codeExecutions = mysqlTable(
   ],
 );
 
+export const classes = mysqlTable(
+  "classes",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    institutionId: char("institution_id", { length: 36 })
+      .notNull()
+      .references(() => institutions.id, { onDelete: "restrict" }),
+    teacherId: char("teacher_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    subjectName: varchar("subject_name", { length: 120 }).notNull(),
+    sectionLabel: varchar("section_label", { length: 60 }).notNull(),
+    joinCode: char("join_code", { length: 6 }).notNull(),
+    archivedAt: timestamp("archived_at", { mode: "date", fsp: 3 }),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [
+    uniqueIndex("classes_join_code_uq").on(table.joinCode),
+    index("classes_teacher_idx").on(table.teacherId),
+  ],
+);
+
+export const classMembers = mysqlTable(
+  "class_members",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    classId: char("class_id", { length: 36 })
+      .notNull()
+      .references(() => classes.id, { onDelete: "restrict" }),
+    studentId: char("student_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    status: mysqlEnum("status", ["active", "removed"])
+      .notNull()
+      .default("active"),
+    joinedAt: timestamp("joined_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("class_members_class_student_uq").on(
+      table.classId,
+      table.studentId,
+    ),
+    index("class_members_student_idx").on(table.studentId),
+  ],
+);
+
+export const activities = mysqlTable(
+  "activities",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    classId: char("class_id", { length: 36 })
+      .notNull()
+      .references(() => classes.id, { onDelete: "restrict" }),
+    title: varchar("title", { length: 160 }).notNull(),
+    instructions: text("instructions").notNull(),
+    language: mysqlEnum("language", [
+      "python",
+      "java",
+      "cpp",
+      "javascript",
+      "c",
+    ]).notNull(),
+    starterCode: text("starter_code"),
+    referenceSolution: text("reference_solution"),
+    allowRetake: boolean("allow_retake").notNull().default(false),
+    comparisonMode: mysqlEnum("comparison_mode", [
+      "normalized_exact",
+      "token",
+      "numeric",
+      "suffix_exact",
+    ])
+      .notNull()
+      .default("suffix_exact"),
+    numericTolerance: double("numeric_tolerance"),
+    points: smallint("points", { unsigned: true }).notNull().default(100),
+    // Both nullable/false by default so an activity with no deadline set
+    // behaves exactly as it always has (always open). isLocked is derived
+    // server-side from these two at read time (locked OR deadline passed),
+    // never stored — see MySqlActivityRepository's toActivitySummary etc.
+    deadlineAt: timestamp("deadline_at", { mode: "date", fsp: 3 }),
+    locked: boolean("locked").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [index("activities_class_idx").on(table.classId)],
+);
+
+export const activityTestCases = mysqlTable(
+  "activity_test_cases",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    activityId: char("activity_id", { length: 36 })
+      .notNull()
+      .references(() => activities.id, { onDelete: "restrict" }),
+    stdin: text("stdin").notNull(),
+    expectedStdout: text("expected_stdout").notNull(),
+    isHidden: boolean("is_hidden").notNull().default(false),
+    showExpectedOutput: boolean("show_expected_output")
+      .notNull()
+      .default(false),
+    orderIndex: smallint("order_index", { unsigned: true })
+      .notNull()
+      .default(0),
+  },
+  (table) => [index("activity_test_cases_activity_idx").on(table.activityId)],
+);
+
+export const activityAttempts = mysqlTable(
+  "activity_attempts",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    activityId: char("activity_id", { length: 36 })
+      .notNull()
+      .references(() => activities.id, { onDelete: "restrict" }),
+    studentId: char("student_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    // The student's most recently submitted source, whichever run produced
+    // it (passed or not) — lets a teacher see what was actually written,
+    // not just the pass/fail outcome.
+    sourceCode: mediumtext("source_code"),
+    status: mysqlEnum("status", [
+      "in_progress",
+      "passed",
+      "submitted_incomplete",
+      "zeroed_violation",
+    ])
+      .notNull()
+      .default("in_progress"),
+    // Incremented on each detected tab-switch or fullscreen-exit while an
+    // attempt is in progress. Never locks the attempt — once violationCount
+    // exceeds ACTIVITY_ALLOWED_VIOLATIONS, each excess violation deducts
+    // ACTIVITY_VIOLATION_DEDUCTION_PERCENT% of the activity's points from
+    // the score (see scoreFor in activity-repository.ts). "zeroed_violation"
+    // above is legacy — no attempt reaches it anymore.
+    violationCount: smallint("violation_count", { unsigned: true })
+      .notNull()
+      .default(0),
+    startedAt: timestamp("started_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    submittedAt: timestamp("submitted_at", { mode: "date", fsp: 3 }),
+  },
+  (table) => [
+    uniqueIndex("activity_attempts_activity_student_uq").on(
+      table.activityId,
+      table.studentId,
+    ),
+    index("activity_attempts_student_idx").on(table.studentId),
+  ],
+);
+
+export const activityTestRuns = mysqlTable(
+  "activity_test_runs",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    attemptId: char("attempt_id", { length: 36 })
+      .notNull()
+      .references(() => activityAttempts.id, { onDelete: "restrict" }),
+    testCaseId: char("test_case_id", { length: 36 })
+      .notNull()
+      .references(() => activityTestCases.id, { onDelete: "restrict" }),
+    passed: boolean("passed").notNull(),
+    actualStdout: text("actual_stdout"),
+    ranAt: timestamp("ran_at", { mode: "date", fsp: 3 }).notNull().defaultNow(),
+  },
+  (table) => [index("activity_test_runs_attempt_idx").on(table.attemptId)],
+);
+
+export const activityViolations = mysqlTable(
+  "activity_violations",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    attemptId: char("attempt_id", { length: 36 })
+      .notNull()
+      .references(() => activityAttempts.id, { onDelete: "restrict" }),
+    kind: mysqlEnum("kind", ["tab_switch", "fullscreen_exit"]).notNull(),
+    occurredAt: timestamp("occurred_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("activity_violations_attempt_idx").on(table.attemptId)],
+);
+
+// Advisory-only "this submission might be hardcoded" signals — never
+// affects grading, surfaced to the teacher for manual review. Append-only,
+// same shape as activityViolations: one row per detection, not deduped
+// against prior submissions of the same attempt.
+export const activityIntegrityFlags = mysqlTable(
+  "activity_integrity_flags",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    attemptId: char("attempt_id", { length: 36 })
+      .notNull()
+      .references(() => activityAttempts.id, { onDelete: "restrict" }),
+    kind: mysqlEnum("kind", ["input_ignored", "output_invariant"]).notNull(),
+    testCaseId: char("test_case_id", { length: 36 }).references(
+      () => activityTestCases.id,
+      { onDelete: "restrict" },
+    ),
+    message: text("message").notNull(),
+    detectedAt: timestamp("detected_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("activity_integrity_flags_attempt_idx").on(table.attemptId),
+  ],
+);
+
+export const quizzes = mysqlTable(
+  "quizzes",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    classId: char("class_id", { length: 36 })
+      .notNull()
+      .references(() => classes.id, { onDelete: "restrict" }),
+    title: varchar("title", { length: 160 }).notNull(),
+    quizType: mysqlEnum("quiz_type", ["lecture", "code"])
+      .notNull()
+      .default("lecture"),
+    durationMinutes: smallint("duration_minutes", { unsigned: true }).notNull(),
+    opensAt: timestamp("opens_at", { mode: "date", fsp: 3 }).notNull(),
+    closesAt: timestamp("closes_at", { mode: "date", fsp: 3 }).notNull(),
+    status: mysqlEnum("status", ["draft", "open", "closed"])
+      .notNull()
+      .default("open"),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [
+    index("quizzes_class_idx").on(table.classId),
+    index("quizzes_availability_idx").on(
+      table.status,
+      table.opensAt,
+      table.closesAt,
+    ),
+  ],
+);
+
+export const quizQuestions = mysqlTable(
+  "quiz_questions",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    quizId: char("quiz_id", { length: 36 })
+      .notNull()
+      .references(() => quizzes.id, { onDelete: "restrict" }),
+    questionText: text("question_text").notNull(),
+    questionType: mysqlEnum("question_type", [
+      "mcq",
+      "short_answer",
+      "code_choice",
+    ]).notNull(),
+    language: mysqlEnum("language", [
+      "python",
+      "java",
+      "cpp",
+      "javascript",
+      "c",
+    ]),
+    options: json("options_json").$type<string[] | null>(),
+    correctAnswer: text("correct_answer").notNull(),
+    points: smallint("points", { unsigned: true }).notNull(),
+    orderIndex: smallint("order_index", { unsigned: true })
+      .notNull()
+      .default(0),
+  },
+  (table) => [
+    index("quiz_questions_quiz_idx").on(table.quizId, table.orderIndex),
+  ],
+);
+
+export const quizAttempts = mysqlTable(
+  "quiz_attempts",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    quizId: char("quiz_id", { length: 36 })
+      .notNull()
+      .references(() => quizzes.id, { onDelete: "restrict" }),
+    studentId: char("student_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    startedAt: timestamp("started_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    submittedAt: timestamp("submitted_at", { mode: "date", fsp: 3 }),
+    score: int("score", { unsigned: true }),
+    status: mysqlEnum("status", ["in_progress", "submitted", "timed_out"])
+      .notNull()
+      .default("in_progress"),
+    violationCount: smallint("violation_count", { unsigned: true })
+      .notNull()
+      .default(0),
+  },
+  (table) => [
+    uniqueIndex("quiz_attempts_quiz_student_uq").on(
+      table.quizId,
+      table.studentId,
+    ),
+    index("quiz_attempts_student_idx").on(table.studentId),
+  ],
+);
+
+export const quizAnswers = mysqlTable(
+  "quiz_answers",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    quizAttemptId: char("quiz_attempt_id", { length: 36 })
+      .notNull()
+      .references(() => quizAttempts.id, { onDelete: "restrict" }),
+    questionId: char("question_id", { length: 36 })
+      .notNull()
+      .references(() => quizQuestions.id, { onDelete: "restrict" }),
+    response: text("response").notNull(),
+    isCorrect: boolean("is_correct").notNull(),
+    pointsAwarded: smallint("points_awarded", { unsigned: true })
+      .notNull()
+      .default(0),
+  },
+  (table) => [
+    uniqueIndex("quiz_answers_attempt_question_uq").on(
+      table.quizAttemptId,
+      table.questionId,
+    ),
+    index("quiz_answers_question_idx").on(table.questionId),
+  ],
+);
+
+export const races = mysqlTable(
+  "races",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    classId: char("class_id", { length: 36 })
+      .notNull()
+      .references(() => classes.id, { onDelete: "restrict" }),
+    title: varchar("title", { length: 160 }).notNull(),
+    durationMinutes: smallint("duration_minutes", { unsigned: true }).notNull(),
+    opensAt: timestamp("opens_at", { mode: "date", fsp: 3 }).notNull(),
+    closesAt: timestamp("closes_at", { mode: "date", fsp: 3 }).notNull(),
+    status: mysqlEnum("status", ["draft", "open", "closed"])
+      .notNull()
+      .default("open"),
+    createdAt: timestamp("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow()
+      .onUpdateNow(),
+  },
+  (table) => [
+    index("races_class_idx").on(table.classId),
+    index("races_availability_idx").on(
+      table.status,
+      table.opensAt,
+      table.closesAt,
+    ),
+  ],
+);
+
+export const raceProblems = mysqlTable(
+  "race_problems",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    raceId: char("race_id", { length: 36 })
+      .notNull()
+      .references(() => races.id, { onDelete: "restrict" }),
+    orderIndex: smallint("order_index", { unsigned: true })
+      .notNull()
+      .default(0),
+    title: varchar("title", { length: 160 }).notNull(),
+    instructions: text("instructions").notNull(),
+    language: mysqlEnum("language", [
+      "python",
+      "java",
+      "cpp",
+      "javascript",
+      "c",
+    ]).notNull(),
+    starterCode: text("starter_code"),
+    referenceSolution: text("reference_solution"),
+    comparisonMode: mysqlEnum("comparison_mode", [
+      "normalized_exact",
+      "token",
+      "numeric",
+      "suffix_exact",
+    ])
+      .notNull()
+      .default("suffix_exact"),
+    numericTolerance: double("numeric_tolerance"),
+    points: smallint("points", { unsigned: true }).notNull().default(100),
+  },
+  (table) => [
+    index("race_problems_race_idx").on(table.raceId, table.orderIndex),
+  ],
+);
+
+export const raceTestCases = mysqlTable(
+  "race_test_cases",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    problemId: char("problem_id", { length: 36 })
+      .notNull()
+      .references(() => raceProblems.id, { onDelete: "restrict" }),
+    stdin: text("stdin").notNull(),
+    expectedStdout: text("expected_stdout").notNull(),
+    isHidden: boolean("is_hidden").notNull().default(false),
+    showExpectedOutput: boolean("show_expected_output")
+      .notNull()
+      .default(false),
+    orderIndex: smallint("order_index", { unsigned: true })
+      .notNull()
+      .default(0),
+  },
+  (table) => [index("race_test_cases_problem_idx").on(table.problemId)],
+);
+
+export const raceAttempts = mysqlTable(
+  "race_attempts",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    raceId: char("race_id", { length: 36 })
+      .notNull()
+      .references(() => races.id, { onDelete: "restrict" }),
+    studentId: char("student_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    status: mysqlEnum("status", ["in_progress", "submitted", "timed_out"])
+      .notNull()
+      .default("in_progress"),
+    startedAt: timestamp("started_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .defaultNow(),
+    submittedAt: timestamp("submitted_at", { mode: "date", fsp: 3 }),
+    violationCount: smallint("violation_count", { unsigned: true })
+      .notNull()
+      .default(0),
+  },
+  (table) => [
+    uniqueIndex("race_attempts_race_student_uq").on(
+      table.raceId,
+      table.studentId,
+    ),
+    index("race_attempts_student_idx").on(table.studentId),
+  ],
+);
+
+export const raceProblemSubmissions = mysqlTable(
+  "race_problem_submissions",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    attemptId: char("attempt_id", { length: 36 })
+      .notNull()
+      .references(() => raceAttempts.id, { onDelete: "restrict" }),
+    problemId: char("problem_id", { length: 36 })
+      .notNull()
+      .references(() => raceProblems.id, { onDelete: "restrict" }),
+    sourceCode: mediumtext("source_code").notNull(),
+    submitted: boolean("submitted").notNull().default(false),
+    passedTestCaseCount: smallint("passed_test_case_count", {
+      unsigned: true,
+    })
+      .notNull()
+      .default(0),
+    totalTestCaseCount: smallint("total_test_case_count", { unsigned: true })
+      .notNull()
+      .default(0),
+    score: smallint("score", { unsigned: true }),
+    submittedAt: timestamp("submitted_at", { mode: "date", fsp: 3 }),
+  },
+  (table) => [
+    uniqueIndex("race_problem_submissions_attempt_problem_uq").on(
+      table.attemptId,
+      table.problemId,
+    ),
+    index("race_problem_submissions_problem_idx").on(table.problemId),
+  ],
+);
+
 export const savedQueries = mysqlTable(
   "saved_queries",
   {
@@ -613,7 +1112,14 @@ export const guiContainerAllocations = mysqlTable(
 );
 
 export const platformSchema = {
+  activities,
+  activityAttempts,
+  activityTestCases,
+  activityTestRuns,
+  activityViolations,
   auditEvents,
+  classes,
+  classMembers,
   codeExecutions,
   codeWorkspaces,
   erdDiagrams,
@@ -624,6 +1130,15 @@ export const platformSchema = {
   institutions,
   javaGuiWorkspaces,
   queryExecutions,
+  quizAnswers,
+  quizAttempts,
+  quizQuestions,
+  quizzes,
+  raceAttempts,
+  raceProblems,
+  raceProblemSubmissions,
+  races,
+  raceTestCases,
   savedQueries,
   sections,
   templateVersions,

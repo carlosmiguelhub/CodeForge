@@ -27,10 +27,15 @@ import {
 import type { MySql2Database } from "drizzle-orm/mysql2";
 
 import {
+  classes,
+  classMembers,
   codeExecutions,
   codeWorkspaces,
   erdDiagrams,
+  guiContainerAllocations,
+  guiSessions,
   institutionMemberships,
+  javaGuiWorkspaces,
   platformSchema,
   queryExecutions,
   savedQueries,
@@ -400,6 +405,47 @@ export class MySqlAccountRepository implements AccountRepository {
       await transaction
         .delete(erdDiagrams)
         .where(eq(erdDiagrams.ownerId, userId));
+
+      // gui_container_allocations -> gui_sessions -> java_gui_workspaces are
+      // all ON DELETE RESTRICT against users, same as every other owned
+      // table here — allocations must go first since they reference the
+      // session, not the user, directly.
+      const ownedGuiSessions = await transaction
+        .select({ id: guiSessions.id })
+        .from(guiSessions)
+        .where(eq(guiSessions.ownerId, userId));
+      const ownedGuiSessionIds = ownedGuiSessions.map((row) => row.id);
+      if (ownedGuiSessionIds.length > 0) {
+        await transaction
+          .delete(guiContainerAllocations)
+          .where(
+            inArray(guiContainerAllocations.sessionId, ownedGuiSessionIds),
+          );
+        await transaction
+          .delete(guiSessions)
+          .where(eq(guiSessions.ownerId, userId));
+      }
+      await transaction
+        .delete(javaGuiWorkspaces)
+        .where(eq(javaGuiWorkspaces.ownerId, userId));
+
+      // A user can own classes (as a teacher) and/or belong to classes (as a
+      // student) at once — both must be cleared before the users row, since
+      // both FKs are ON DELETE RESTRICT.
+      const ownedClasses = await transaction
+        .select({ id: classes.id })
+        .from(classes)
+        .where(eq(classes.teacherId, userId));
+      const ownedClassIds = ownedClasses.map((row) => row.id);
+      if (ownedClassIds.length > 0) {
+        await transaction
+          .delete(classMembers)
+          .where(inArray(classMembers.classId, ownedClassIds));
+        await transaction.delete(classes).where(eq(classes.teacherId, userId));
+      }
+      await transaction
+        .delete(classMembers)
+        .where(eq(classMembers.studentId, userId));
 
       const ownedTemplates = await transaction
         .select({ id: workspaceTemplates.id })

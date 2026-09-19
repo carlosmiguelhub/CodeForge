@@ -1,5 +1,11 @@
 import { IdentityService } from "@sqweb/auth";
 import { AdminInsightsService } from "@sqweb/admin-insights";
+import {
+  ActivityService,
+  ClassroomService,
+  QuizService,
+  RaceService,
+} from "@sqweb/classroom";
 import { CodeWorkspaceService } from "@sqweb/code-workspace";
 import { ErdService } from "@sqweb/erd";
 import { GuiSessionService } from "@sqweb/gui-session";
@@ -11,13 +17,17 @@ import { WorkspaceService } from "@sqweb/workspace";
 import { ExecutionGrantSigner } from "@sqweb/execution";
 import {
   MySqlAccountRepository,
+  MySqlActivityRepository,
   MySqlAuditSink,
+  MySqlClassroomRepository,
   MySqlCodeWorkspaceRepository,
   MySqlErdDiagramRepository,
   MySqlGuiSessionAccessReader,
   MySqlInfrastructureReader,
   MySqlInstitutionRepository,
   MySqlJavaGuiWorkspaceRepository,
+  MySqlQuizRepository,
+  MySqlRaceRepository,
   MySqlSavedQueryRepository,
   MySqlSectionRepository,
   MySqlUsageReader,
@@ -71,6 +81,12 @@ const pool = createPool({
   uri: environment.PLATFORM_DATABASE_URL,
   connectionLimit: 5,
   enableKeepAlive: true,
+  // Without this, mysql2 reinterprets TIMESTAMP columns using the Node
+  // process's local timezone instead of the UTC instant MySQL actually
+  // stored, silently shifting every Date read back by the local UTC
+  // offset (e.g. -8h in GMT+0800) — corrupts every schedule/deadline
+  // comparison without touching the stored bytes themselves.
+  timezone: "Z",
 });
 const database = drizzle(pool, {
   schema: platformSchema,
@@ -99,6 +115,30 @@ const adminInsights = new AdminInsightsService({
   auditReader: audit,
   audit,
   infrastructure: new MySqlInfrastructureReader(database),
+});
+const classroomRepository = new MySqlClassroomRepository(database);
+const classroom = new ClassroomService({
+  identity,
+  classes: classroomRepository,
+  audit,
+});
+const activity = new ActivityService({
+  identity,
+  classes: classroomRepository,
+  activities: new MySqlActivityRepository(database),
+  audit,
+});
+const quiz = new QuizService({
+  identity,
+  classes: classroomRepository,
+  quizzes: new MySqlQuizRepository(database),
+  audit,
+});
+const race = new RaceService({
+  identity,
+  classes: classroomRepository,
+  races: new MySqlRaceRepository(database),
+  audit,
 });
 const section = new SectionService({
   institutionId: environment.SQWEB_DEFAULT_INSTITUTION_ID,
@@ -157,6 +197,10 @@ const guiSession = new GuiSessionService({
 const server = await buildServer({
   identity,
   adminInsights,
+  classroom,
+  activity,
+  quiz,
+  race,
   section,
   workspace,
   erd,

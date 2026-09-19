@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ProtectedRolePage } from "@/components/auth/protected-role-page";
-import { FoundationDashboard } from "@/components/foundation-dashboard";
+import { TeacherDashboard } from "@/components/teacher-dashboard";
 
 export default function TeacherPage() {
   return (
@@ -11,7 +11,7 @@ export default function TeacherPage() {
         eyebrow="Teacher workspace"
         pageTitle="Dashboard"
       >
-        <FoundationDashboard />
+        <TeacherDashboard />
       </AppShell>
     </ProtectedRolePage>
   );

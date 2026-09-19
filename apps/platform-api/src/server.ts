@@ -2,6 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import { AuthorizationError, type IdentityService } from "@sqweb/auth";
 import type { AdminInsightsService } from "@sqweb/admin-insights";
+import type {
+  ActivityService,
+  ClassroomService,
+  QuizService,
+  RaceService,
+} from "@sqweb/classroom";
 import type { CodeWorkspaceService } from "@sqweb/code-workspace";
 import type { ErdService } from "@sqweb/erd";
 import type { GuiSessionService } from "@sqweb/gui-session";
@@ -14,11 +20,17 @@ import type { ExecutionGrantSigner } from "@sqweb/execution";
 import {
   accountListQuerySchema,
   accountStatusSchema,
+  activityBulkResetRequestSchema,
+  activityCreateRequestSchema,
   activityResetRequestSchema,
+  activityScheduleUpdateRequestSchema,
   adminAssignSectionRequestSchema,
   adminCreateUserRequestSchema,
   adminSetPasswordRequestSchema,
   auditEventListQuerySchema,
+  classCreateRequestSchema,
+  classJoinRequestSchema,
+  classUpdateRequestSchema,
   codeWorkspaceSaveRequestSchema,
   erdDiagramCreateRequestSchema,
   erdDiagramRenameRequestSchema,
@@ -31,6 +43,16 @@ import {
   webWorkspaceSaveRequestSchema,
   maintenanceUpdateRequestSchema,
   profileUpdateRequestSchema,
+  quizBulkResetRequestSchema,
+  quizCreateRequestSchema,
+  quizScheduleUpdateRequestSchema,
+  quizSubmitRequestSchema,
+  quizUpdateRequestSchema,
+  quizViolationRequestSchema,
+  raceBulkResetRequestSchema,
+  raceCreateRequestSchema,
+  raceScheduleUpdateRequestSchema,
+  raceUpdateRequestSchema,
   registrationRequestSchema,
   roleAssignmentRequestSchema,
   roleSchema,
@@ -62,6 +84,34 @@ const roleParamsSchema = z.object({
 });
 
 const sectionParamsSchema = z.object({ id: z.string().uuid() });
+const classParamsSchema = z.object({ id: z.string().uuid() });
+const classActivitiesParamsSchema = z.object({ classId: z.string().uuid() });
+const classMemberParamsSchema = z.object({
+  id: z.string().uuid(),
+  studentId: z.string().uuid(),
+});
+const activityParamsSchema = z.object({ id: z.string().uuid() });
+const activitySubmissionParamsSchema = z.object({
+  id: z.string().uuid(),
+  studentId: z.string().uuid(),
+});
+const classQuizzesParamsSchema = z.object({ classId: z.string().uuid() });
+const quizParamsSchema = z.object({ id: z.string().uuid() });
+const quizSubmissionParamsSchema = z.object({
+  id: z.string().uuid(),
+  studentId: z.string().uuid(),
+});
+const classRacesParamsSchema = z.object({ classId: z.string().uuid() });
+const raceParamsSchema = z.object({ id: z.string().uuid() });
+const raceSubmissionParamsSchema = z.object({
+  id: z.string().uuid(),
+  studentId: z.string().uuid(),
+});
+const raceProblemSubmissionParamsSchema = z.object({
+  id: z.string().uuid(),
+  studentId: z.string().uuid(),
+  problemId: z.string().uuid(),
+});
 const workspaceParamsSchema = z.object({ id: z.string().uuid() });
 const erdDiagramParamsSchema = z.object({ id: z.string().uuid() });
 const savedQueryParamsSchema = z.object({ id: z.string().uuid() });
@@ -75,6 +125,10 @@ function headerValue(value: string | string[] | undefined): string | undefined {
 export interface PlatformServerDependencies {
   readonly identity: IdentityService;
   readonly adminInsights: AdminInsightsService;
+  readonly classroom: ClassroomService;
+  readonly activity: ActivityService;
+  readonly quiz: QuizService;
+  readonly race: RaceService;
   readonly section: SectionService;
   readonly workspace: WorkspaceService;
   readonly erd: ErdService;
@@ -663,6 +717,458 @@ export async function buildServer(dependencies: PlatformServerDependencies) {
     await dependencies.guiSession.stopSession(verified, params.id);
     return reply.code(204).send();
   });
+
+  server.post("/v1/classes", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const body = classCreateRequestSchema.parse(request.body);
+    const created = await dependencies.classroom.createClass(verified, body);
+    return reply.code(201).send(created);
+  });
+
+  server.get("/v1/classes/teaching", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    return dependencies.classroom.listTeaching(verified);
+  });
+
+  server.get("/v1/classes/enrolled", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    return dependencies.classroom.listEnrolled(verified);
+  });
+
+  server.post("/v1/classes/join", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const body = classJoinRequestSchema.parse(request.body);
+    return dependencies.classroom.joinClass(verified, body);
+  });
+
+  server.get("/v1/classes/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classParamsSchema.parse(request.params);
+    return dependencies.classroom.getDetail(verified, params.id);
+  });
+
+  server.patch("/v1/classes/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classParamsSchema.parse(request.params);
+    const body = classUpdateRequestSchema.parse(request.body);
+    return dependencies.classroom.updateClass(verified, params.id, body);
+  });
+
+  server.post("/v1/classes/:id/archive", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classParamsSchema.parse(request.params);
+    return dependencies.classroom.archiveClass(verified, params.id);
+  });
+
+  server.post("/v1/classes/:id/unarchive", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classParamsSchema.parse(request.params);
+    return dependencies.classroom.unarchiveClass(verified, params.id);
+  });
+
+  server.post("/v1/classes/:id/regenerate-join-code", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classParamsSchema.parse(request.params);
+    return dependencies.classroom.regenerateJoinCode(verified, params.id);
+  });
+
+  server.delete("/v1/classes/:id/members/:studentId", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classMemberParamsSchema.parse(request.params);
+    return dependencies.classroom.removeMember(
+      verified,
+      params.id,
+      params.studentId,
+    );
+  });
+
+  server.post("/v1/classes/:id/leave", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classParamsSchema.parse(request.params);
+    await dependencies.classroom.leaveClass(verified, params.id);
+    return reply.code(204).send();
+  });
+
+  server.delete("/v1/classes/:id", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classParamsSchema.parse(request.params);
+    await dependencies.classroom.deleteClass(verified, params.id);
+    return reply.code(204).send();
+  });
+
+  server.post("/v1/classes/:classId/activities", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classActivitiesParamsSchema.parse(request.params);
+    const body = activityCreateRequestSchema.parse(request.body);
+    const created = await dependencies.activity.createActivity(
+      verified,
+      params.classId,
+      body,
+    );
+    return reply.code(201).send(created);
+  });
+
+  server.get("/v1/classes/:classId/activities", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classActivitiesParamsSchema.parse(request.params);
+    return dependencies.activity.listForClass(verified, params.classId);
+  });
+
+  server.get("/v1/activities/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = activityParamsSchema.parse(request.params);
+    return dependencies.activity.getDetail(verified, params.id);
+  });
+
+  server.patch("/v1/activities/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = activityParamsSchema.parse(request.params);
+    const body = activityCreateRequestSchema.parse(request.body);
+    return dependencies.activity.updateActivity(verified, params.id, body);
+  });
+
+  server.patch("/v1/activities/:id/schedule", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = activityParamsSchema.parse(request.params);
+    const body = activityScheduleUpdateRequestSchema.parse(request.body);
+    return dependencies.activity.updateSchedule(verified, params.id, body);
+  });
+
+  server.post("/v1/activities/:id/lock", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = activityParamsSchema.parse(request.params);
+    return dependencies.activity.lockActivity(verified, params.id);
+  });
+
+  server.delete("/v1/activities/:id", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = activityParamsSchema.parse(request.params);
+    await dependencies.activity.deleteActivity(verified, params.id);
+    return reply.code(204).send();
+  });
+
+  server.get("/v1/activities/:id/submissions", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = activityParamsSchema.parse(request.params);
+    return dependencies.activity.listSubmissions(verified, params.id);
+  });
+
+  server.post(
+    "/v1/activities/:id/submissions/:studentId/reset",
+    async (request, reply) => {
+      const verified = await dependencies.identity.verifyBearer(
+        request.headers.authorization,
+      );
+      const params = activitySubmissionParamsSchema.parse(request.params);
+      await dependencies.activity.resetAttempt(
+        verified,
+        params.id,
+        params.studentId,
+      );
+      return reply.code(204).send();
+    },
+  );
+
+  server.post(
+    "/v1/activities/:id/submissions/bulk-reset",
+    async (request, reply) => {
+      const verified = await dependencies.identity.verifyBearer(
+        request.headers.authorization,
+      );
+      const params = activityParamsSchema.parse(request.params);
+      const body = activityBulkResetRequestSchema.parse(request.body);
+      await dependencies.activity.resetAttempts(verified, params.id, body);
+      return reply.code(204).send();
+    },
+  );
+
+  server.post("/v1/classes/:classId/quizzes", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classQuizzesParamsSchema.parse(request.params);
+    const body = quizCreateRequestSchema.parse(request.body);
+    const created = await dependencies.quiz.createQuiz(
+      verified,
+      params.classId,
+      body,
+    );
+    return reply.code(201).send(created);
+  });
+
+  server.get("/v1/classes/:classId/quizzes", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classQuizzesParamsSchema.parse(request.params);
+    return dependencies.quiz.listForClass(verified, params.classId);
+  });
+
+  server.get("/v1/quizzes/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    return dependencies.quiz.getDetail(verified, params.id);
+  });
+
+  server.patch("/v1/quizzes/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    const body = quizUpdateRequestSchema.parse(request.body);
+    return dependencies.quiz.updateQuiz(verified, params.id, body);
+  });
+
+  server.delete("/v1/quizzes/:id", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    await dependencies.quiz.deleteQuiz(verified, params.id);
+    return reply.code(204).send();
+  });
+
+  server.patch("/v1/quizzes/:id/schedule", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    const body = quizScheduleUpdateRequestSchema.parse(request.body);
+    return dependencies.quiz.updateSchedule(verified, params.id, body);
+  });
+
+  server.post("/v1/quizzes/:id/attempts/start", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    const attempt = await dependencies.quiz.startAttempt(verified, params.id);
+    return reply.code(201).send(attempt);
+  });
+
+  server.post("/v1/quizzes/:id/submissions", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    const body = quizSubmitRequestSchema.parse(request.body);
+    return dependencies.quiz.submitAttempt(verified, params.id, body);
+  });
+
+  server.get("/v1/quizzes/:id/submissions", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    return dependencies.quiz.listSubmissions(verified, params.id);
+  });
+
+  server.get("/v1/quizzes/:id/leaderboard", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    return dependencies.quiz.getLeaderboard(verified, params.id);
+  });
+
+  server.post("/v1/quizzes/:id/violations", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = quizParamsSchema.parse(request.params);
+    const body = quizViolationRequestSchema.parse(request.body);
+    return dependencies.quiz.recordViolation(verified, params.id, body);
+  });
+
+  server.post(
+    "/v1/quizzes/:id/submissions/:studentId/reset",
+    async (request, reply) => {
+      const verified = await dependencies.identity.verifyBearer(
+        request.headers.authorization,
+      );
+      const params = quizSubmissionParamsSchema.parse(request.params);
+      await dependencies.quiz.resetAttempt(
+        verified,
+        params.id,
+        params.studentId,
+      );
+      return reply.code(204).send();
+    },
+  );
+
+  server.post(
+    "/v1/quizzes/:id/submissions/bulk-reset",
+    async (request, reply) => {
+      const verified = await dependencies.identity.verifyBearer(
+        request.headers.authorization,
+      );
+      const params = quizParamsSchema.parse(request.params);
+      const body = quizBulkResetRequestSchema.parse(request.body);
+      await dependencies.quiz.resetAttempts(verified, params.id, body);
+      return reply.code(204).send();
+    },
+  );
+
+  server.post("/v1/classes/:classId/races", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classRacesParamsSchema.parse(request.params);
+    const body = raceCreateRequestSchema.parse(request.body);
+    const created = await dependencies.race.createRace(
+      verified,
+      params.classId,
+      body,
+    );
+    return reply.code(201).send(created);
+  });
+
+  server.get("/v1/classes/:classId/races", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = classRacesParamsSchema.parse(request.params);
+    return dependencies.race.listForClass(verified, params.classId);
+  });
+
+  server.get("/v1/races/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = raceParamsSchema.parse(request.params);
+    return dependencies.race.getDetail(verified, params.id);
+  });
+
+  server.patch("/v1/races/:id", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = raceParamsSchema.parse(request.params);
+    const body = raceUpdateRequestSchema.parse(request.body);
+    return dependencies.race.updateRace(verified, params.id, body);
+  });
+
+  server.delete("/v1/races/:id", async (request, reply) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = raceParamsSchema.parse(request.params);
+    await dependencies.race.deleteRace(verified, params.id);
+    return reply.code(204).send();
+  });
+
+  server.patch("/v1/races/:id/schedule", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = raceParamsSchema.parse(request.params);
+    const body = raceScheduleUpdateRequestSchema.parse(request.body);
+    return dependencies.race.updateSchedule(verified, params.id, body);
+  });
+
+  server.get("/v1/races/:id/leaderboard", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = raceParamsSchema.parse(request.params);
+    return dependencies.race.getLeaderboard(verified, params.id);
+  });
+
+  server.get("/v1/races/:id/submissions", async (request) => {
+    const verified = await dependencies.identity.verifyBearer(
+      request.headers.authorization,
+    );
+    const params = raceParamsSchema.parse(request.params);
+    return dependencies.race.listSubmissions(verified, params.id);
+  });
+
+  server.post(
+    "/v1/races/:id/submissions/:studentId/reset",
+    async (request, reply) => {
+      const verified = await dependencies.identity.verifyBearer(
+        request.headers.authorization,
+      );
+      const params = raceSubmissionParamsSchema.parse(request.params);
+      await dependencies.race.resetStudent(
+        verified,
+        params.id,
+        params.studentId,
+      );
+      return reply.code(204).send();
+    },
+  );
+
+  server.post(
+    "/v1/races/:id/submissions/bulk-reset",
+    async (request, reply) => {
+      const verified = await dependencies.identity.verifyBearer(
+        request.headers.authorization,
+      );
+      const params = raceParamsSchema.parse(request.params);
+      const body = raceBulkResetRequestSchema.parse(request.body);
+      await dependencies.race.resetStudents(verified, params.id, body);
+      return reply.code(204).send();
+    },
+  );
+
+  server.post(
+    "/v1/races/:id/submissions/:studentId/problems/:problemId/reset",
+    async (request, reply) => {
+      const verified = await dependencies.identity.verifyBearer(
+        request.headers.authorization,
+      );
+      const params = raceProblemSubmissionParamsSchema.parse(request.params);
+      await dependencies.race.resetProblem(
+        verified,
+        params.id,
+        params.studentId,
+        params.problemId,
+      );
+      return reply.code(204).send();
+    },
+  );
 
   server.get("/v1/saved-queries", async (request) => {
     const verified = await dependencies.identity.verifyBearer(

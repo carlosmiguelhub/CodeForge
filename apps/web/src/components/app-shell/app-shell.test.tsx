@@ -56,7 +56,7 @@ describe("AppShell", () => {
       screen.getByRole("navigation", { name: "Teacher navigation" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Database Templates" }),
+      screen.getByRole("link", { name: "My Classes" }),
     ).toBeInTheDocument();
   });
 

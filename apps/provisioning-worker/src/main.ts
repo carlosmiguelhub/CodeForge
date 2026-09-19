@@ -56,11 +56,16 @@ const platformPool = createPool({
   uri: environment.PLATFORM_DATABASE_URL,
   connectionLimit: 2,
   enableKeepAlive: true,
+  // See the matching comment in execution-api/platform-api's main.ts —
+  // without this, mysql2 misreads TIMESTAMP columns by the local UTC
+  // offset instead of the true stored instant.
+  timezone: "Z",
 });
 const workspaceAdminPool = createPool({
   uri: environment.WORKSPACE_ADMIN_DATABASE_URL,
   connectionLimit: 2,
   enableKeepAlive: true,
+  timezone: "Z",
 });
 const worker = new ProvisioningWorker({
   repository: new MySqlWorkspaceProvisioningRepository(platformPool),

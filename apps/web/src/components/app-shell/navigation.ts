@@ -1,10 +1,10 @@
 import type { Role } from "@sqweb/contracts";
 import {
   AppWindow,
-  ChartNoAxesCombined,
   CircleGauge,
   Code2,
   Database,
+  GraduationCap,
   Globe,
   Layers,
   Network,
@@ -21,6 +21,9 @@ export interface NavigationItem {
   readonly label: string;
   readonly href: string;
   readonly icon: LucideIcon;
+  // Adds extra spacing above this item in the sidebar to set it apart from
+  // the group before it, without needing a separate grouping data shape.
+  readonly separated?: boolean;
 }
 
 export const roleNavigation = {
@@ -52,42 +55,23 @@ export const roleNavigation = {
       href: "/student/java-gui-workspace",
       icon: AppWindow,
     },
+    {
+      label: "My Classes",
+      href: "/student/classes",
+      icon: GraduationCap,
+      separated: true,
+    },
   ],
+  // Deliberately narrower than the student nav: a teacher account's job is
+  // teaching, not running the practice workspaces. The underlying
+  // /teacher/workspaces, /teacher/code-workspace, etc. pages are untouched
+  // and still reachable by direct URL — only removed here from discovery —
+  // so this is easy to reverse if that scope call changes later. The old
+  // pre-pivot placeholders (Database Templates/Students/Analytics, which
+  // never had real pages behind them) are dropped outright instead.
   teacher: [
     { label: "Dashboard", href: "/teacher", icon: CircleGauge },
-    {
-      label: "SQL Workspace",
-      href: "/teacher/workspaces",
-      icon: SquareTerminal,
-    },
-    {
-      label: "Code Workspace",
-      href: "/teacher/code-workspace",
-      icon: Code2,
-    },
-    {
-      label: "Web Workspace",
-      href: "/teacher/web-workspace",
-      icon: Globe,
-    },
-    {
-      label: "ERD Workspace",
-      href: "/teacher/erd-workspace",
-      icon: Network,
-    },
-    { label: "Saved Queries", href: "/teacher/saved-queries", icon: Database },
-    {
-      label: "Java GUI Workspace",
-      href: "/teacher/java-gui-workspace",
-      icon: AppWindow,
-    },
-    { label: "Database Templates", href: "/teacher/templates", icon: Database },
-    { label: "Students", href: "/teacher/students", icon: Users },
-    {
-      label: "Analytics",
-      href: "/teacher/analytics",
-      icon: ChartNoAxesCombined,
-    },
+    { label: "My Classes", href: "/teacher/classes", icon: GraduationCap },
   ],
   administrator: [
     { label: "Dashboard", href: "/admin", icon: CircleGauge },

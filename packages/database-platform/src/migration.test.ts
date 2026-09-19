@@ -42,6 +42,14 @@ const webWorkspaceMigrationUrl = new URL(
   "../migrations/0014_web_workspace.sql",
   import.meta.url,
 );
+const quizMigrationUrl = new URL(
+  "../migrations/0019_quizzes.sql",
+  import.meta.url,
+);
+const activityOutputMatchingMigrationUrl = new URL(
+  "../migrations/0020_activity_output_matching.sql",
+  import.meta.url,
+);
 
 describe("identity migration boundary", () => {
   it("creates only identity, membership, and audit platform tables", async () => {
@@ -207,5 +215,44 @@ describe("web workspace migration boundary", () => {
     );
     expect(sql).toContain("content JSON NOT NULL");
     expect(sql).not.toMatch(/execution|source_code|stdout|stdin/i);
+  });
+});
+
+describe("quiz migration boundary", () => {
+  it("stores timed quiz questions, attempts, and server-scored answers", async () => {
+    const sql = await readFile(quizMigrationUrl, "utf8");
+    const tables = [...sql.matchAll(/CREATE TABLE ([a-z_]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(tables).toEqual([
+      "quizzes",
+      "quiz_questions",
+      "quiz_attempts",
+      "quiz_answers",
+    ]);
+    expect(sql).toContain(
+      "UNIQUE KEY quiz_attempts_quiz_student_uq (quiz_id, student_id)",
+    );
+    expect(sql).toContain(
+      "UNIQUE KEY quiz_answers_attempt_question_uq (quiz_attempt_id, question_id)",
+    );
+    expect(sql).toContain("correct_answer TEXT NOT NULL");
+    expect(sql).toContain(
+      "status ENUM('in_progress', 'submitted', 'timed_out')",
+    );
+    expect(sql).not.toMatch(/code_execution|judge0|source_code/i);
+  });
+});
+
+describe("activity output matching migration boundary", () => {
+  it("adds comparison controls without exposing existing answer keys", async () => {
+    const sql = await readFile(activityOutputMatchingMigrationUrl, "utf8");
+    expect(sql).toContain(
+      "comparison_mode ENUM('normalized_exact', 'token', 'numeric') NOT NULL DEFAULT 'normalized_exact'",
+    );
+    expect(sql).toContain("numeric_tolerance DOUBLE NULL");
+    expect(sql).toContain("is_hidden TINYINT(1) NOT NULL DEFAULT 0");
+    expect(sql).toContain("show_expected_output TINYINT(1) NOT NULL DEFAULT 0");
+    expect(sql).not.toMatch(/UPDATE activity_test_cases|DROP|DELETE/i);
   });
 });

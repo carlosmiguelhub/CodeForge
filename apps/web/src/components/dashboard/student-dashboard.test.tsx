@@ -1,117 +1,69 @@
 import axe from "axe-core";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-const workspaceSummary = {
+const klass = {
   id: "00000000-0000-4000-8000-000000000020",
-  ownerId: "00000000-0000-4000-8000-000000000010",
-  scope: "personal",
-  scopeId: "00000000-0000-4000-8000-000000000010",
-  state: "ready",
-  quotaBytes: 104857600,
-  templateVersionId: null,
-  expiresAt: null,
-  failureCode: null,
-  createdAt: "2026-08-18T07:00:00.000Z",
-  updatedAt: "2026-08-18T07:00:00.000Z",
+  teacherId: "00000000-0000-4000-8000-000000000010",
+  teacherName: "Ms. Teacher",
+  subjectName: "Databases 101",
+  sectionLabel: "BSIT 2B",
+  joinCode: "ABC123",
+  archivedAt: null,
+  createdAt: "2026-09-10T00:00:00.000Z",
+  memberCount: 20,
 };
 
-const codeWorkspace = {
-  ownerId: "00000000-0000-4000-8000-000000000010",
-  content: {
-    root: {
-      id: "root",
-      kind: "folder",
-      name: "My files",
-      children: [
-        {
-          id: "f1",
-          kind: "file",
-          name: "solution.py",
-          language: "python",
-          sourceCode: "print(1)",
-        },
-        {
-          id: "folder1",
-          kind: "folder",
-          name: "Week 1",
-          children: [
-            {
-              id: "f2",
-              kind: "file",
-              name: "main.c",
-              language: "c",
-              sourceCode: "int main() {}",
-            },
-          ],
-        },
-      ],
-    },
-    expanded: [],
-    openFileIds: [],
-    activeFileId: "",
-  },
-  createdAt: "2026-08-18T00:00:00.000Z",
-  updatedAt: "2026-08-18T00:00:00.000Z",
+const openActivity = {
+  id: "00000000-0000-4000-8000-000000000030",
+  title: "Joins practice",
+  language: "python",
+  testCaseCount: 3,
+  points: 100,
+  deadlineAt: "2026-09-20T00:00:00.000Z",
+  isLocked: false,
+  createdAt: "2026-09-11T00:00:00.000Z",
+  attemptStatus: null,
+  score: null,
+  submittedAt: null,
 };
 
-const erdDiagram = {
-  id: "00000000-0000-4000-8000-000000000040",
-  ownerId: "00000000-0000-4000-8000-000000000010",
-  name: "Library schema",
-  createdAt: "2026-08-18T07:00:00.000Z",
-  updatedAt: "2026-08-19T09:00:00.000Z",
+const passedActivity = {
+  ...openActivity,
+  id: "00000000-0000-4000-8000-000000000031",
+  title: "Already done",
+  attemptStatus: "passed",
+  score: 100,
+  submittedAt: "2026-09-12T00:00:00.000Z",
 };
+
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body));
+}
 
 const mocks = vi.hoisted(() => ({
   authorizedFetch: vi.fn(async (path: string) => {
-    if (path === "/v1/workspaces") return new Response(JSON.stringify([]));
-    if (path === "/v1/code-workspace")
-      return new Response(
-        JSON.stringify({
-          ownerId: "00000000-0000-4000-8000-000000000010",
-          content: {
-            root: {
-              id: "root",
-              kind: "folder",
-              name: "My files",
-              children: [],
-            },
-            expanded: [],
-            openFileIds: [],
-            activeFileId: "",
-          },
-          createdAt: "2026-08-18T00:00:00.000Z",
-          updatedAt: "2026-08-18T00:00:00.000Z",
-        }),
-      );
-    if (path === "/v1/erd-diagrams") return new Response(JSON.stringify([]));
-    return new Response(JSON.stringify([]));
-  }),
-  executionFetch: vi.fn(async (path: string) => {
-    if (path.startsWith("/v1/query-history"))
-      return new Response(JSON.stringify([]));
-    if (path === "/v1/code-execution-history")
-      return new Response(JSON.stringify([]));
-    return new Response(JSON.stringify([]));
+    if (path === "/v1/classes/enrolled") return jsonResponse([]);
+    if (path.endsWith("/activities")) return jsonResponse([]);
+    if (path.endsWith("/quizzes")) return jsonResponse([]);
+    if (path.endsWith("/races")) return jsonResponse([]);
+    return jsonResponse([]);
   }),
 }));
 
 vi.mock("@/components/auth/auth-provider", () => ({
   useAuth: () => ({
     authorizedFetch: mocks.authorizedFetch,
-    executionFetch: mocks.executionFetch,
-    account: { displayName: "Ada" },
   }),
 }));
 
 import { StudentDashboard } from "./student-dashboard";
 
 describe("StudentDashboard", () => {
-  it("has no automated accessibility violations before any workspace exists", async () => {
+  it("has no automated accessibility violations with no classes joined", async () => {
     const { container, getByText } = render(<StudentDashboard />);
     await waitFor(() =>
-      expect(getByText(/No activity yet/)).toBeInTheDocument(),
+      expect(getByText(/haven't joined a class yet/)).toBeInTheDocument(),
     );
     const results = await axe.run(container, {
       rules: { "color-contrast": { enabled: false } },
@@ -119,112 +71,33 @@ describe("StudentDashboard", () => {
     expect(results.violations).toEqual([]);
   });
 
-  it("shows real counts for all three workspaces, not just SQL", async () => {
+  it("lists an open, not-yet-submitted activity in To do and counts it as pending", async () => {
     mocks.authorizedFetch.mockImplementation(async (path: string) => {
-      if (path === "/v1/workspaces")
-        return new Response(JSON.stringify([workspaceSummary]));
-      if (path === "/v1/code-workspace")
-        return new Response(JSON.stringify(codeWorkspace));
-      if (path === "/v1/erd-diagrams")
-        return new Response(JSON.stringify([erdDiagram]));
-      return new Response(JSON.stringify([]));
+      if (path === "/v1/classes/enrolled") return jsonResponse([klass]);
+      if (path.endsWith("/activities")) return jsonResponse([openActivity]);
+      if (path.endsWith("/quizzes")) return jsonResponse([]);
+      if (path.endsWith("/races")) return jsonResponse([]);
+      return jsonResponse([]);
     });
-    const { getByText } = render(<StudentDashboard />);
-    // Two files across the tree (solution.py + Week 1/main.c).
-    await waitFor(() => expect(getByText("2")).toBeInTheDocument());
-    expect(getByText("Ready")).toBeInTheDocument();
-    expect(getByText("1")).toBeInTheDocument();
+    const { getByText, getAllByText } = render(<StudentDashboard />);
+    await waitFor(() => expect(getByText("Joins practice")).toBeInTheDocument());
+    expect(getAllByText("Databases 101").length).toBeGreaterThan(0);
+    expect(getAllByText(/Not started/).length).toBeGreaterThan(0);
+    expect(getByText("1 pending", { exact: false })).toBeInTheDocument();
   });
 
-  it("merges SQL, code, and ERD activity into one feed sorted by recency", async () => {
+  it("excludes a passed activity from To do and counts it as completed", async () => {
     mocks.authorizedFetch.mockImplementation(async (path: string) => {
-      if (path === "/v1/workspaces")
-        return new Response(JSON.stringify([workspaceSummary]));
-      if (path === "/v1/code-workspace")
-        return new Response(JSON.stringify(codeWorkspace));
-      if (path === "/v1/erd-diagrams")
-        return new Response(JSON.stringify([erdDiagram]));
-      return new Response(JSON.stringify([]));
+      if (path === "/v1/classes/enrolled") return jsonResponse([klass]);
+      if (path.endsWith("/activities")) return jsonResponse([passedActivity]);
+      if (path.endsWith("/quizzes")) return jsonResponse([]);
+      if (path.endsWith("/races")) return jsonResponse([]);
+      return jsonResponse([]);
     });
-    mocks.executionFetch.mockImplementation(async (path: string) => {
-      if (path.startsWith("/v1/query-history"))
-        return new Response(
-          JSON.stringify([
-            {
-              id: "q1",
-              state: "successful",
-              statementClasses: ["select"],
-              durationMs: 12,
-              rowsReturned: 3,
-              startedAt: "2026-08-19T08:00:00.000Z",
-            },
-          ]),
-        );
-      if (path === "/v1/code-execution-history")
-        return new Response(
-          JSON.stringify([
-            {
-              id: "00000000-0000-4000-8000-000000000050",
-              language: "python",
-              status: "accepted",
-              timeMs: 40,
-              startedAt: "2026-08-19T10:00:00.000Z",
-            },
-          ]),
-        );
-      return new Response(JSON.stringify([]));
-    });
-    const { getByText } = render(<StudentDashboard />);
-    // "select" only lands once the SQL history fetch (gated on the ready
-    // workspace resolving first) completes, which is the last of the four
-    // sources to settle — waiting on it means the other two are in too.
-    await waitFor(() => expect(getByText("select")).toBeInTheDocument());
-    expect(getByText("python")).toBeInTheDocument();
-    expect(getByText("Library schema")).toBeInTheDocument();
-  });
-
-  it("opens each workspace's guide tour from its card, one at a time", async () => {
-    render(<StudentDashboard />);
+    const { getByText, queryByText } = render(<StudentDashboard />);
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /SQL Workspace/ }),
-      ).toBeInTheDocument(),
+      expect(getByText(/all caught up/)).toBeInTheDocument(),
     );
-    expect(
-      screen.getByText("Saved queries and ERD generation"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Interactive prompts and stdin"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Routed relationship lines")).toBeInTheDocument();
-    expect(screen.getByText("View 8-step guide")).toBeInTheDocument();
-    expect(screen.getAllByText("View 7-step guide")).toHaveLength(2);
-
-    fireEvent.click(screen.getByRole("button", { name: /SQL Workspace/ }));
-    expect(screen.getByText("SQL Workspace guide")).toBeInTheDocument();
-    expect(screen.getByText("Step 1 of 8")).toBeInTheDocument();
-    expect(
-      screen.getByText("Your private MySQL workspace"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Code Workspace guide")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
-    expect(screen.getByText("A good first workflow")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close guide" }));
-    expect(screen.queryByText("SQL Workspace guide")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /ERD Workspace/ }));
-    expect(screen.getByText("ERD Workspace guide")).toBeInTheDocument();
-  });
-
-  it("no longer shows the old Quick Actions section", async () => {
-    render(<StudentDashboard />);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /SQL Workspace/ }),
-      ).toBeInTheDocument(),
-    );
-    expect(screen.queryByText("Quick actions")).not.toBeInTheDocument();
+    expect(queryByText("Already done")).not.toBeInTheDocument();
   });
 });

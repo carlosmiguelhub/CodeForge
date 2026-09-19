@@ -10,6 +10,18 @@ import type {
 } from "@sqweb/auth";
 import { IdentityService } from "@sqweb/auth";
 import { AdminInsightsService } from "@sqweb/admin-insights";
+import type { ClassroomRepository } from "@sqweb/classroom";
+import {
+  ActivityService,
+  ClassroomService,
+  QuizService,
+  RaceService,
+} from "@sqweb/classroom";
+import type {
+  ActivityRepository,
+  QuizRepository,
+  RaceRepository,
+} from "@sqweb/classroom";
 import type { SectionRepository } from "@sqweb/sections";
 import { SectionService } from "@sqweb/sections";
 import type { WorkspaceRepository } from "@sqweb/workspace";
@@ -225,6 +237,400 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => server.close()));
 });
 
+describe("platform classroom quiz API", () => {
+  const classId = "00000000-0000-4000-8000-000000000120";
+  const quizId = "00000000-0000-4000-8000-000000000121";
+  const teacher: AccountProfile = {
+    id: "00000000-0000-4000-8000-000000000122",
+    firebaseUid: "quiz-teacher",
+    email: "quiz-teacher@example.edu",
+    displayName: "Quiz Teacher",
+    institutionId,
+    status: "active",
+    roles: ["teacher"],
+    sectionId: null,
+    authorizationVersion: 1,
+  };
+
+  it("creates a validated MCQ quiz for the class teacher", async () => {
+    const { server, classroomRepository, quizRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(quizRepository.create).mockResolvedValue({
+      id: quizId,
+      classId,
+      title: "Fundamentals",
+      quizType: "lecture",
+      durationMinutes: 20,
+      opensAt: "2099-01-01T00:00:00.000Z",
+      closesAt: "2099-01-02T00:00:00.000Z",
+      status: "open",
+      availability: "scheduled",
+      totalPoints: 2,
+      createdAt: "2026-09-10T00:00:00.000Z",
+      questions: [
+        {
+          id: "00000000-0000-4000-8000-000000000123",
+          questionText: "Pick A",
+          questionType: "mcq",
+          language: null,
+          options: ["A", "B"],
+          correctAnswer: "A",
+          points: 2,
+          orderIndex: 0,
+        },
+      ],
+      memberCount: 0,
+      submittedCount: 0,
+    });
+    const response = await server.inject({
+      method: "POST",
+      url: `/v1/classes/${classId}/quizzes`,
+      headers: { authorization: "Bearer quiz-teacher" },
+      payload: {
+        title: "Fundamentals",
+        quizType: "lecture",
+        durationMinutes: 20,
+        opensAt: "2099-01-01T00:00:00.000Z",
+        closesAt: "2099-01-02T00:00:00.000Z",
+        questions: [
+          {
+            questionText: "Pick A",
+            questionType: "mcq",
+            options: ["A", "B"],
+            correctAnswer: "A",
+            points: 2,
+          },
+        ],
+      },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ id: quizId, totalPoints: 2 });
+  });
+
+  it("rejects an MCQ whose answer is not one of its options", async () => {
+    const { server } = await setup(teacher);
+    const response = await server.inject({
+      method: "POST",
+      url: `/v1/classes/${classId}/quizzes`,
+      headers: { authorization: "Bearer quiz-teacher" },
+      payload: {
+        title: "Invalid",
+        quizType: "lecture",
+        durationMinutes: 20,
+        opensAt: "2099-01-01T00:00:00.000Z",
+        closesAt: "2099-01-02T00:00:00.000Z",
+        questions: [
+          {
+            questionText: "Pick one",
+            questionType: "mcq",
+            options: ["A", "B"],
+            correctAnswer: "C",
+            points: 2,
+          },
+        ],
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_FAILED");
+  });
+
+  it("bulk-resets selected activity attempts", async () => {
+    const activityId = "00000000-0000-4000-8000-000000000124";
+    const studentId = "00000000-0000-4000-8000-000000000125";
+    const { server, classroomRepository, activityRepository } =
+      await setup(teacher);
+    vi.mocked(activityRepository.findClassId).mockResolvedValue(classId);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    const response = await server.inject({
+      method: "POST",
+      url: `/v1/activities/${activityId}/submissions/bulk-reset`,
+      headers: { authorization: "Bearer quiz-teacher" },
+      payload: { studentIds: [studentId] },
+    });
+    expect(response.statusCode).toBe(204);
+    expect(activityRepository.resetAttempts).toHaveBeenCalledWith(activityId, [
+      studentId,
+    ]);
+  });
+});
+
+describe("platform classroom Code Racing API", () => {
+  const classId = "00000000-0000-4000-8000-000000000130";
+  const raceId = "00000000-0000-4000-8000-000000000131";
+  const teacher: AccountProfile = {
+    id: "00000000-0000-4000-8000-000000000132",
+    firebaseUid: "race-teacher",
+    email: "race-teacher@example.edu",
+    displayName: "Race Teacher",
+    institutionId,
+    status: "active",
+    roles: ["teacher"],
+    sectionId: null,
+    authorizationVersion: 1,
+  };
+
+  const raceForTeacher = {
+    id: raceId,
+    classId,
+    title: "Code Quiz #1",
+    durationMinutes: 120,
+    opensAt: "2099-01-01T00:00:00.000Z",
+    closesAt: "2099-01-02T00:00:00.000Z",
+    status: "open" as const,
+    availability: "scheduled" as const,
+    totalPoints: 100,
+    createdAt: "2026-09-10T00:00:00.000Z",
+    problems: [
+      {
+        id: "00000000-0000-4000-8000-000000000133",
+        orderIndex: 0,
+        title: "Even or Odd",
+        instructions: "Print Even or Odd.",
+        language: "python" as const,
+        starterCode: null,
+        referenceSolution: null,
+        comparisonMode: "suffix_exact" as const,
+        numericTolerance: null,
+        points: 100,
+        testCases: [
+          {
+            id: "00000000-0000-4000-8000-000000000134",
+            stdin: "8",
+            expectedStdout: "Even",
+            isHidden: false,
+            showExpectedOutput: true,
+            orderIndex: 0,
+          },
+        ],
+      },
+    ],
+    memberCount: 0,
+    submittedCount: 0,
+  };
+
+  it("creates a Code Racing quiz with 3 problems totaling 300 points for the class teacher", async () => {
+    const { server, classroomRepository, raceRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(raceRepository.create).mockResolvedValue({
+      ...raceForTeacher,
+      totalPoints: 300,
+    });
+    const problem = {
+      title: "Even or Odd",
+      instructions: "Print Even or Odd.",
+      language: "python",
+      testCases: [{ stdin: "8", expectedStdout: "Even" }],
+    };
+    const response = await server.inject({
+      method: "POST",
+      url: `/v1/classes/${classId}/races`,
+      headers: { authorization: "Bearer race-teacher" },
+      payload: {
+        title: "Code Quiz #1",
+        durationMinutes: 120,
+        opensAt: "2099-01-01T00:00:00.000Z",
+        closesAt: "2099-01-02T00:00:00.000Z",
+        problems: [problem, problem, problem],
+      },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ id: raceId, totalPoints: 300 });
+  });
+
+  it("rejects a close time that is not after the open time", async () => {
+    const { server, classroomRepository } = await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    const response = await server.inject({
+      method: "POST",
+      url: `/v1/classes/${classId}/races`,
+      headers: { authorization: "Bearer race-teacher" },
+      payload: {
+        title: "Backwards",
+        durationMinutes: 120,
+        opensAt: "2099-01-02T00:00:00.000Z",
+        closesAt: "2099-01-01T00:00:00.000Z",
+        problems: [
+          {
+            title: "Even or Odd",
+            instructions: "Print Even or Odd.",
+            language: "python",
+            testCases: [{ stdin: "8", expectedStdout: "Even" }],
+          },
+        ],
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_FAILED");
+  });
+
+  it("fetches a race's detail for its teacher", async () => {
+    const { server, classroomRepository, raceRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(raceRepository.findClassId).mockResolvedValue(classId);
+    vi.mocked(raceRepository.getForTeacher).mockResolvedValue(raceForTeacher);
+    const response = await server.inject({
+      method: "GET",
+      url: `/v1/races/${raceId}`,
+      headers: { authorization: "Bearer race-teacher" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      id: raceId,
+      title: "Code Quiz #1",
+    });
+  });
+
+  it("extends a race's close time without touching its problems or scores", async () => {
+    const { server, classroomRepository, raceRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(raceRepository.findClassId).mockResolvedValue(classId);
+    vi.mocked(raceRepository.getForTeacher).mockResolvedValue({
+      ...raceForTeacher,
+      closesAt: "2099-01-03T00:00:00.000Z",
+    });
+    const response = await server.inject({
+      method: "PATCH",
+      url: `/v1/races/${raceId}/schedule`,
+      headers: { authorization: "Bearer race-teacher" },
+      payload: { closesAt: "2099-01-03T00:00:00.000Z" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(raceRepository.updateSchedule).toHaveBeenCalledWith(
+      raceId,
+      new Date("2099-01-03T00:00:00.000Z"),
+    );
+    expect(response.json().closesAt).toBe("2099-01-03T00:00:00.000Z");
+  });
+
+  it("returns the race leaderboard ranked by percentage", async () => {
+    const { server, classroomRepository, raceRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(raceRepository.findClassId).mockResolvedValue(classId);
+    vi.mocked(raceRepository.listRaceLeaderboard).mockResolvedValue([
+      {
+        rank: 1,
+        studentId: "00000000-0000-4000-8000-000000000135",
+        studentName: "A. Student",
+        totalScore: 200,
+        totalPoints: 300,
+        percentage: 67,
+      },
+    ]);
+    const response = await server.inject({
+      method: "GET",
+      url: `/v1/races/${raceId}/leaderboard`,
+      headers: { authorization: "Bearer race-teacher" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([
+      expect.objectContaining({ rank: 1, percentage: 67 }),
+    ]);
+  });
+
+  it("returns the submissions roster for the class teacher", async () => {
+    const { server, classroomRepository, raceRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(raceRepository.findClassId).mockResolvedValue(classId);
+    vi.mocked(raceRepository.listSubmissions).mockResolvedValue([
+      {
+        studentId: "00000000-0000-4000-8000-000000000135",
+        studentName: "A. Student",
+        attemptStatus: "in_progress",
+        startedAt: "2026-09-10T00:00:00.000Z",
+        submittedAt: null,
+        totalScore: 67,
+        totalPoints: 300,
+        violationCount: 0,
+        problems: [],
+      },
+    ]);
+    const response = await server.inject({
+      method: "GET",
+      url: `/v1/races/${raceId}/submissions`,
+      headers: { authorization: "Bearer race-teacher" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([
+      expect.objectContaining({ studentName: "A. Student", totalScore: 67 }),
+    ]);
+  });
+
+  it("resets a single student's progress on the race", async () => {
+    const studentId = "00000000-0000-4000-8000-000000000136";
+    const { server, classroomRepository, raceRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(raceRepository.findClassId).mockResolvedValue(classId);
+    const response = await server.inject({
+      method: "POST",
+      url: `/v1/races/${raceId}/submissions/${studentId}/reset`,
+      headers: { authorization: "Bearer race-teacher" },
+    });
+    expect(response.statusCode).toBe(204);
+    expect(raceRepository.resetStudent).toHaveBeenCalledWith(
+      raceId,
+      studentId,
+      expect.any(Date),
+    );
+  });
+
+  it("bulk-resets selected students on the race", async () => {
+    const studentId = "00000000-0000-4000-8000-000000000137";
+    const { server, classroomRepository, raceRepository } =
+      await setup(teacher);
+    vi.mocked(classroomRepository.getAccess).mockResolvedValue({
+      isTeacher: true,
+      isActiveMember: false,
+    });
+    vi.mocked(raceRepository.findClassId).mockResolvedValue(classId);
+    const response = await server.inject({
+      method: "POST",
+      url: `/v1/races/${raceId}/submissions/bulk-reset`,
+      headers: { authorization: "Bearer race-teacher" },
+      payload: { studentIds: [studentId] },
+    });
+    expect(response.statusCode).toBe(204);
+    expect(raceRepository.resetStudents).toHaveBeenCalledWith(
+      raceId,
+      [studentId],
+      expect.any(Date),
+    );
+  });
+});
+
 async function setup(actor?: AccountProfile) {
   const accounts = new MemoryAccounts();
   if (actor) accounts.accounts.set(actor.firebaseUid, actor);
@@ -435,6 +841,75 @@ async function setup(actor?: AccountProfile) {
     }),
     save: vi.fn(),
   };
+  const classroomRepository: ClassroomRepository = {
+    create: vi.fn(),
+    listForTeacher: vi.fn().mockResolvedValue([]),
+    listForStudent: vi.fn().mockResolvedValue([]),
+    findByJoinCode: vi.fn().mockResolvedValue(null),
+    isTeacherOrMember: vi.fn().mockResolvedValue(false),
+    addMember: vi.fn(),
+    removeMember: vi.fn(),
+    getDetail: vi.fn().mockResolvedValue(null),
+    getAccess: vi.fn().mockResolvedValue(null),
+    update: vi.fn(),
+    archive: vi.fn(),
+    unarchive: vi.fn(),
+    regenerateJoinCode: vi.fn(),
+    countDependents: vi
+      .fn()
+      .mockResolvedValue({ members: 0, activities: 0, quizzes: 0, races: 0 }),
+    remove: vi.fn(),
+  };
+  const activityRepository: ActivityRepository = {
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn().mockResolvedValue(undefined),
+    listForTeacher: vi.fn().mockResolvedValue([]),
+    listForStudent: vi.fn().mockResolvedValue([]),
+    getForTeacher: vi.fn().mockResolvedValue(null),
+    getForStudent: vi.fn().mockResolvedValue(null),
+    findClassId: vi.fn().mockResolvedValue(null),
+    updateSchedule: vi.fn().mockResolvedValue(undefined),
+    lock: vi.fn().mockResolvedValue(undefined),
+    listSubmissions: vi.fn().mockResolvedValue([]),
+    resetAttempt: vi.fn().mockResolvedValue(undefined),
+    resetAttempts: vi.fn().mockResolvedValue(undefined),
+  };
+  const quizRepository: QuizRepository = {
+    create: vi.fn(),
+    listForTeacher: vi.fn().mockResolvedValue([]),
+    listForStudent: vi.fn().mockResolvedValue([]),
+    getForTeacher: vi.fn().mockResolvedValue(null),
+    getForStudent: vi.fn().mockResolvedValue(null),
+    findClassId: vi.fn().mockResolvedValue(null),
+    remove: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn(),
+    updateSchedule: vi.fn().mockResolvedValue(undefined),
+    startAttempt: vi.fn(),
+    markAttemptTimedOut: vi.fn().mockResolvedValue(undefined),
+    submitAttempt: vi.fn().mockResolvedValue(true),
+    listSubmissions: vi.fn().mockResolvedValue([]),
+    listQuizLeaderboard: vi.fn().mockResolvedValue([]),
+    resetAttempt: vi.fn().mockResolvedValue(undefined),
+    resetAttempts: vi.fn().mockResolvedValue(undefined),
+    recordViolation: vi.fn().mockResolvedValue(1),
+  };
+  const raceRepository: RaceRepository = {
+    create: vi.fn(),
+    listForTeacher: vi.fn().mockResolvedValue([]),
+    listForStudent: vi.fn().mockResolvedValue([]),
+    getForTeacher: vi.fn().mockResolvedValue(null),
+    getForStudent: vi.fn().mockResolvedValue(null),
+    findClassId: vi.fn().mockResolvedValue(null),
+    remove: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn(),
+    updateSchedule: vi.fn().mockResolvedValue(undefined),
+    listRaceLeaderboard: vi.fn().mockResolvedValue([]),
+    listSubmissions: vi.fn().mockResolvedValue([]),
+    resetStudent: vi.fn().mockResolvedValue(undefined),
+    resetStudents: vi.fn().mockResolvedValue(undefined),
+    resetProblem: vi.fn().mockResolvedValue(undefined),
+  };
   const guiSessionRepository: GuiSessionAccessRepository = {
     create: vi.fn().mockResolvedValue(undefined),
     get: vi.fn().mockResolvedValue(null),
@@ -446,6 +921,29 @@ async function setup(actor?: AccountProfile) {
   const server = await buildServer({
     identity,
     adminInsights,
+    classroom: new ClassroomService({
+      identity,
+      classes: classroomRepository,
+      audit: dependencies.audit,
+    }),
+    activity: new ActivityService({
+      identity,
+      classes: classroomRepository,
+      activities: activityRepository,
+      audit: dependencies.audit,
+    }),
+    quiz: new QuizService({
+      identity,
+      classes: classroomRepository,
+      quizzes: quizRepository,
+      audit: dependencies.audit,
+    }),
+    race: new RaceService({
+      identity,
+      classes: classroomRepository,
+      races: raceRepository,
+      audit: dependencies.audit,
+    }),
     section,
     workspace: workspaceService,
     erd: new ErdService({
@@ -493,6 +991,10 @@ async function setup(actor?: AccountProfile) {
     accounts,
     institutions,
     workspaceRepository,
+    classroomRepository,
+    activityRepository,
+    quizRepository,
+    raceRepository,
     erdDiagramRepository,
     codeWorkspaceRepository,
     webWorkspaceRepository,

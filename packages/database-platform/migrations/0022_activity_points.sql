@@ -1,0 +1,2 @@
+ALTER TABLE activities
+  ADD COLUMN points SMALLINT UNSIGNED NOT NULL DEFAULT 100 AFTER numeric_tolerance;

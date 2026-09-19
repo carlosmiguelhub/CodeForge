@@ -68,6 +68,10 @@ const platformPool = createPool({
   uri: environment.PLATFORM_DATABASE_URL,
   connectionLimit: 2,
   enableKeepAlive: true,
+  // See the matching comment in execution-api/platform-api's main.ts —
+  // without this, mysql2 misreads TIMESTAMP columns by the local UTC
+  // offset instead of the true stored instant.
+  timezone: "Z",
 });
 
 const docker = new Docker();
