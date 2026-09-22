@@ -507,7 +507,7 @@ export function QuizWorkspace({ quizId }: Readonly<{ quizId: string }>) {
               <fieldset
                 key={question.id}
                 disabled={attemptEnded || busy || remainingMs <= 0}
-                className="border-structural bg-surface rounded-panel border p-4 disabled:opacity-80"
+                className="border-structural bg-surface rounded-panel min-w-0 border p-4 disabled:opacity-80"
               >
                 <legend className="sr-only">Question {index + 1}</legend>
                 <div className="flex items-start justify-between gap-3">
