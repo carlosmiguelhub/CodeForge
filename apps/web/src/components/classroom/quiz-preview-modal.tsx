@@ -113,7 +113,7 @@ export function QuizPreviewModal({
                             ? codeLanguageMeta[question.language].monacoId
                             : "plaintext"
                         }
-                        className="flex-1 overflow-x-auto font-mono text-[11px] leading-5 whitespace-pre"
+                        className="min-w-0 flex-1 overflow-x-auto font-mono text-[11px] leading-5 whitespace-pre"
                       />
                     </label>
                   ))

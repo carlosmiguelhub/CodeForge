@@ -513,7 +513,7 @@ export function QuizDetailTeacher({ quizId }: Readonly<{ quizId: string }>) {
                                         .monacoId
                                     : "plaintext"
                                 }
-                                className="flex-1 overflow-x-auto font-mono text-[11px] leading-5 whitespace-pre"
+                                className="min-w-0 flex-1 overflow-x-auto font-mono text-[11px] leading-5 whitespace-pre"
                               />
                             </li>
                           );
@@ -660,7 +660,8 @@ export function QuizDetailTeacher({ quizId }: Readonly<{ quizId: string }>) {
                         {submission.violationCount > 0 ? (
                           <span className="text-danger border-danger/30 bg-danger/5 rounded-control flex shrink-0 items-center gap-1 border px-2 py-0.5 text-[11px] font-medium">
                             <ShieldAlert aria-hidden="true" size={11} />
-                            {submission.violationCount}/{QUIZ_ALLOWED_VIOLATIONS}
+                            {submission.violationCount}/
+                            {QUIZ_ALLOWED_VIOLATIONS}
                           </span>
                         ) : null}
                         {submission.score !== null ? (

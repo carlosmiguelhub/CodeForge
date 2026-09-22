@@ -123,7 +123,9 @@ export function QuizWorkspace({ quizId }: Readonly<{ quizId: string }>) {
     : 0;
   const answerResults = useMemo(
     () =>
-      new Map(quiz?.answerResults?.map((answer) => [answer.questionId, answer])),
+      new Map(
+        quiz?.answerResults?.map((answer) => [answer.questionId, answer]),
+      ),
     [quiz?.answerResults],
   );
   const quizViolationCount = quiz?.attempt?.violationCount ?? 0;
@@ -417,10 +419,10 @@ export function QuizWorkspace({ quizId }: Readonly<{ quizId: string }>) {
           {quizViolationDeduction > 0 ? (
             <p className="text-warning border-warning/30 bg-warning/5 rounded-control flex items-center gap-1.5 border px-3 py-1.5 text-xs">
               <ShieldAlert aria-hidden="true" size={13} />
-              {quizViolationCount} distractions — {excessViolations} beyond
-              the {QUIZ_ALLOWED_VIOLATIONS} allowed, at{" "}
-              {QUIZ_VIOLATION_DEDUCTION_PERCENT}% of {quiz.totalPoints} pts
-              each = −{quizViolationDeduction} pts.
+              {quizViolationCount} distractions — {excessViolations} beyond the{" "}
+              {QUIZ_ALLOWED_VIOLATIONS} allowed, at{" "}
+              {QUIZ_VIOLATION_DEDUCTION_PERCENT}% of {quiz.totalPoints} pts each
+              = −{quizViolationDeduction} pts.
             </p>
           ) : null}
         </div>
@@ -571,7 +573,7 @@ export function QuizWorkspace({ quizId }: Readonly<{ quizId: string }>) {
                               ? codeLanguageMeta[question.language].monacoId
                               : "plaintext"
                           }
-                          className="flex-1 overflow-x-auto font-mono text-[11px] leading-5 whitespace-pre"
+                          className="min-w-0 flex-1 overflow-x-auto font-mono text-[11px] leading-5 whitespace-pre"
                         />
                       </label>
                     ))}
