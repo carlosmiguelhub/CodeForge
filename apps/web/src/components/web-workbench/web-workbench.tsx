@@ -80,7 +80,7 @@ interface Draft {
 const ROOT_ID = "root";
 const MAX_OPEN_FILES = 100;
 const FILE_NAME_ERROR = "File name must end in .html, .css, or .js";
-const WEB_IMAGE_MAX_KB = Math.floor(WEB_IMAGE_MAX_BYTES / 1000);
+const WEB_IMAGE_MAX_MB = WEB_IMAGE_MAX_BYTES / 1_000_000;
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/gif,image/svg+xml,image/webp";
 
 function defaultSource(name: string): string {
@@ -377,7 +377,7 @@ export function WebWorkbench() {
     }
     if (file.size > WEB_IMAGE_MAX_BYTES) {
       setUploadError(
-        `${file.name} is too large — images must be under ${WEB_IMAGE_MAX_KB}KB.`,
+        `${file.name} is too large — images must be under ${WEB_IMAGE_MAX_MB}MB.`,
       );
       return;
     }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  WEB_SOURCE_MAX_CHARS,
   countWebWorkspaceFiles,
   webFileKindFromName,
   webWorkspaceContentSchema,
@@ -73,11 +74,32 @@ describe("web workspace contracts", () => {
               id: "large",
               kind: "file",
               name: "large.js",
-              sourceCode: "x".repeat(100_001),
+              sourceCode: "x".repeat(WEB_SOURCE_MAX_CHARS + 1),
             },
           ],
         },
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts an image file node and identifies its kind", () => {
+    const parsed = webWorkspaceContentSchema.safeParse({
+      ...content,
+      root: {
+        ...content.root,
+        children: [
+          {
+            id: "logo",
+            kind: "file",
+            name: "logo.png",
+            sourceCode: "data:image/png;base64,AAAA",
+          },
+        ],
+      },
+    });
+    expect(parsed.success).toBe(true);
+    expect(webFileKindFromName("logo.PNG")).toBe("image");
+    expect(webFileKindFromName("photo.jpeg")).toBe("image");
+    expect(webFileKindFromName("notes.txt")).toBeNull();
   });
 });

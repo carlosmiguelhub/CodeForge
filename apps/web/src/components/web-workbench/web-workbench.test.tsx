@@ -1,3 +1,4 @@
+import { WEB_IMAGE_MAX_BYTES } from "@sqweb/contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -184,17 +185,17 @@ describe("WebWorkbench", () => {
     render(<WebWorkbench />);
     await screen.findByRole("button", { name: "View result" });
 
-    const oversized = new File(["a".repeat(70_001)], "big.png", {
-      type: "image/png",
-    });
+    const oversized = new File(
+      ["a".repeat(WEB_IMAGE_MAX_BYTES + 1)],
+      "big.png",
+      { type: "image/png" },
+    );
     fireEvent.change(
       screen.getByLabelText("Choose an image to upload", { exact: false }),
       { target: { files: [oversized] } },
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "too large",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("too large");
     expect(screen.queryByRole("img", { name: "big.png" })).toBeNull();
   });
 });

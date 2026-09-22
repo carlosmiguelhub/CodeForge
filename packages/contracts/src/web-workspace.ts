@@ -37,12 +37,16 @@ export const webAnyFileNameSchema = z
 
 export const webFolderNameSchema = z.string().trim().min(1).max(200);
 
-// A 100,000-char cap on sourceCode (below) applies to every file kind,
-// image data URLs included. Base64 inflates raw bytes by ~4/3, and the
-// "data:image/...;base64," prefix costs a little more — capping the
-// original upload at 70,000 bytes keeps the encoded result comfortably
-// under that limit with room to spare.
-export const WEB_IMAGE_MAX_BYTES = 70_000;
+// Base64 inflates raw bytes by ~4/3, and the "data:image/...;base64,"
+// prefix costs a little more — capping the original upload at 2MB keeps
+// the encoded result comfortably under the sourceCode max below, while
+// still covering real (if optimized) photos, not just icons.
+export const WEB_IMAGE_MAX_BYTES = 2_000_000;
+
+// Applies to every file kind's sourceCode, image data URLs included —
+// sized to comfortably fit a WEB_IMAGE_MAX_BYTES image's base64 encoding
+// (2MB * 4/3, rounded up, plus the data-URL prefix).
+export const WEB_SOURCE_MAX_CHARS = 2_900_000;
 
 export const webFileKindSchema = z.enum(["html", "css", "javascript", "image"]);
 export type WebFileKind = z.infer<typeof webFileKindSchema>;
@@ -85,7 +89,7 @@ const webFileNodeSchema = z.object({
   id: z.string().min(1),
   kind: z.literal("file"),
   name: webAnyFileNameSchema,
-  sourceCode: z.string().max(100_000),
+  sourceCode: z.string().max(WEB_SOURCE_MAX_CHARS),
 });
 
 interface WebFolderNodeInput {
