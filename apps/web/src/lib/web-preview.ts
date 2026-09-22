@@ -101,5 +101,16 @@ export function assemblePreviewDocument(
     scriptTag.replaceWith(script);
   });
 
+  // An uploaded image's sourceCode is the full data: URL already (see the
+  // upload handler in WebWorkbench), so no inlining/parsing needed here —
+  // just point the tag straight at it, the same way a real static host
+  // would resolve the relative path to actual bytes.
+  doc.querySelectorAll("img[src]").forEach((img) => {
+    const fileName = referencedFileName(img.getAttribute("src"));
+    const file = fileName ? filesByName.get(fileName) : undefined;
+    if (!file || !file.sourceCode.startsWith("data:image/")) return;
+    img.setAttribute("src", file.sourceCode);
+  });
+
   return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
 }

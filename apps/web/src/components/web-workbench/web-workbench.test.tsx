@@ -145,4 +145,56 @@ describe("WebWorkbench", () => {
     );
     expect(screen.getByDisplayValue("notes.txt")).toBeInTheDocument();
   });
+
+  it("uploads an image, opens it as a preview instead of the code editor, and resolves it in the live result", async () => {
+    render(<WebWorkbench />);
+    await screen.findByRole("button", { name: "View result" });
+
+    const file = new File(["a".repeat(12)], "logo.png", {
+      type: "image/png",
+    });
+    fireEvent.change(
+      screen.getByLabelText("Choose an image to upload", { exact: false }),
+      { target: { files: [file] } },
+    );
+
+    const image = (await screen.findByRole("img", {
+      name: "logo.png",
+    })) as HTMLImageElement;
+    expect(image.src.startsWith("data:image/png;base64,")).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "index.html" }));
+    fireEvent.change(screen.getByLabelText("Code editor"), {
+      target: {
+        value:
+          '<link rel="stylesheet" href="style.css"><img src="logo.png"><script src="app.js"></script>',
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "View result" }));
+    const iframe = (await screen.findByTitle(
+      "Live preview",
+    )) as HTMLIFrameElement;
+    await waitFor(() =>
+      expect(iframe.srcdoc).toContain('src="data:image/png;base64,'),
+    );
+  });
+
+  it("rejects an oversized image upload with an inline error instead of adding it", async () => {
+    render(<WebWorkbench />);
+    await screen.findByRole("button", { name: "View result" });
+
+    const oversized = new File(["a".repeat(70_001)], "big.png", {
+      type: "image/png",
+    });
+    fireEvent.change(
+      screen.getByLabelText("Choose an image to upload", { exact: false }),
+      { target: { files: [oversized] } },
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "too large",
+    );
+    expect(screen.queryByRole("img", { name: "big.png" })).toBeNull();
+  });
 });

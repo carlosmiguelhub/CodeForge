@@ -7,9 +7,44 @@ export const webFileNameSchema = z
   .max(200)
   .regex(/\.(html|css|js)$/i, "File name must end in .html, .css, or .js");
 
+// Separate from webFileNameSchema on purpose: the "New file" draft flow
+// (hand-typed name, starts with boilerplate/empty text content) should
+// never accept an image extension and silently create an empty, broken
+// "image" — only the upload flow (which supplies real image bytes from a
+// picked file) should produce one. Renaming an existing image, however,
+// does need to accept these extensions — see webAnyFileNameSchema below.
+export const webImageFileNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(
+    /\.(png|jpe?g|gif|svg|webp)$/i,
+    "Image name must end in .png, .jpg, .gif, .svg, or .webp",
+  );
+
+// Used for renaming a file whose *current* kind is already known — accepts
+// whichever extension family that kind allows, text or image.
+export const webAnyFileNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(
+    /\.(html|css|js|png|jpe?g|gif|svg|webp)$/i,
+    "File name must end in .html, .css, .js, .png, .jpg, .gif, .svg, or .webp",
+  );
+
 export const webFolderNameSchema = z.string().trim().min(1).max(200);
 
-export const webFileKindSchema = z.enum(["html", "css", "javascript"]);
+// A 100,000-char cap on sourceCode (below) applies to every file kind,
+// image data URLs included. Base64 inflates raw bytes by ~4/3, and the
+// "data:image/...;base64," prefix costs a little more — capping the
+// original upload at 70,000 bytes keeps the encoded result comfortably
+// under that limit with room to spare.
+export const WEB_IMAGE_MAX_BYTES = 70_000;
+
+export const webFileKindSchema = z.enum(["html", "css", "javascript", "image"]);
 export type WebFileKind = z.infer<typeof webFileKindSchema>;
 
 export const webFileKindMeta: Readonly<
@@ -29,6 +64,10 @@ export const webFileKindMeta: Readonly<
     extension: "js",
     label: "JavaScript",
   },
+  // monacoId is unused for images — they never open in the code editor,
+  // only an <img> preview pane — but kept non-empty so this stays a valid
+  // Monaco language id if some future caller passes it through anyway.
+  image: { monacoId: "plaintext", extension: "png", label: "Image" },
 };
 
 // File type is deliberately derived from the name instead of persisted. A
@@ -38,13 +77,14 @@ export function webFileKindFromName(name: string): WebFileKind | null {
   if (lower.endsWith(".html")) return "html";
   if (lower.endsWith(".css")) return "css";
   if (lower.endsWith(".js")) return "javascript";
+  if (/\.(png|jpe?g|gif|svg|webp)$/i.test(lower)) return "image";
   return null;
 }
 
 const webFileNodeSchema = z.object({
   id: z.string().min(1),
   kind: z.literal("file"),
-  name: webFileNameSchema,
+  name: webAnyFileNameSchema,
   sourceCode: z.string().max(100_000),
 });
 

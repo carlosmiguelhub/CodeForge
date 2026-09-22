@@ -42,6 +42,12 @@ const root: WebPreviewFolderNode = {
       name: "APP.JS",
       sourceCode: "throw new Error('wrong duplicate')",
     },
+    {
+      id: "image",
+      kind: "file",
+      name: "logo.png",
+      sourceCode: "data:image/png;base64,AAAA",
+    },
   ],
 };
 
@@ -67,6 +73,30 @@ describe("web preview assembly", () => {
     expect(parsed.querySelector("script")?.hasAttribute("src")).toBe(false);
     expect(parsed.querySelector("script")?.textContent).toContain(
       '"<\\/script>"',
+    );
+  });
+
+  it("resolves an <img> reference to the uploaded image's data URL", () => {
+    const files = filesByNameInTreeOrder(root);
+    const output = assemblePreviewDocument(
+      '<img src="./logo.png?cache=1" alt="Logo">',
+      files,
+    );
+    const parsed = new DOMParser().parseFromString(output, "text/html");
+
+    expect(parsed.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/png;base64,AAAA",
+    );
+    expect(parsed.querySelector("img")?.getAttribute("alt")).toBe("Logo");
+  });
+
+  it("leaves an <img> reference alone when there's no matching image file", () => {
+    const files = filesByNameInTreeOrder(root);
+    const output = assemblePreviewDocument('<img src="missing.png">', files);
+    const parsed = new DOMParser().parseFromString(output, "text/html");
+
+    expect(parsed.querySelector("img")?.getAttribute("src")).toBe(
+      "missing.png",
     );
   });
 

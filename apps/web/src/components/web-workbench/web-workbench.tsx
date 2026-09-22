@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  WEB_IMAGE_MAX_BYTES,
   webFileKindFromName,
   webFileKindMeta,
   webFileNameSchema,
   webFolderNameSchema,
+  webImageFileNameSchema,
   webWorkspaceSchema,
 } from "@sqweb/contracts";
 import {
@@ -18,6 +20,8 @@ import {
   FolderOpen,
   FolderPlus,
   Globe,
+  Image as ImageIcon,
+  ImagePlus,
   Maximize2,
   Pencil,
   RefreshCw,
@@ -25,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  type ChangeEvent,
   type KeyboardEvent,
   type PointerEvent,
   useEffect,
@@ -75,6 +80,8 @@ interface Draft {
 const ROOT_ID = "root";
 const MAX_OPEN_FILES = 100;
 const FILE_NAME_ERROR = "File name must end in .html, .css, or .js";
+const WEB_IMAGE_MAX_KB = Math.floor(WEB_IMAGE_MAX_BYTES / 1000);
+const IMAGE_ACCEPT = "image/png,image/jpeg,image/gif,image/svg+xml,image/webp";
 
 function defaultSource(name: string): string {
   switch (webFileKindFromName(name)) {
@@ -123,6 +130,10 @@ export function WebWorkbench() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const uploadTargetRef = useRef(ROOT_ID);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(248);
   const [fullScreen, setFullScreen] = useState(false);
   const [mobileFilesOpen, setMobileFilesOpen] = useState(false);
@@ -346,6 +357,62 @@ export function WebWorkbench() {
     setDraft(null);
   }
 
+  function startUpload(parentId: string) {
+    setUploadError(null);
+    uploadTargetRef.current = parentId;
+    imageInputRef.current?.click();
+  }
+
+  function handleImageSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const parsedName = webImageFileNameSchema.safeParse(file.name);
+    if (!parsedName.success) {
+      setUploadError(
+        parsedName.error.issues[0]?.message ?? "That file isn't an image.",
+      );
+      return;
+    }
+    if (file.size > WEB_IMAGE_MAX_BYTES) {
+      setUploadError(
+        `${file.name} is too large — images must be under ${WEB_IMAGE_MAX_KB}KB.`,
+      );
+      return;
+    }
+
+    setUploadError(null);
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUploading(false);
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string") {
+        setUploadError(`${file.name} could not be read.`);
+        return;
+      }
+      const node: WebFileNode = {
+        id: randomId(),
+        kind: "file",
+        name: parsedName.data,
+        sourceCode: dataUrl,
+      };
+      const parentId = uploadTargetRef.current;
+      setExpanded((current) => new Set(current).add(parentId));
+      setRoot(
+        (current) => insertChild(current, parentId, node) as WebFolderNode,
+      );
+      setOpenFileIds((current) => [...current, node.id].slice(-MAX_OPEN_FILES));
+      setActiveFileId(node.id);
+    };
+    reader.onerror = () => {
+      setUploading(false);
+      setUploadError(`${file.name} could not be read.`);
+    };
+    reader.readAsDataURL(file);
+  }
+
   function deleteNode(id: string) {
     const node = findNode<WebFileNode, WebFolderNode>(root, id);
     if (!node) return;
@@ -379,14 +446,22 @@ export function WebWorkbench() {
     const node = findNode<WebFileNode, WebFolderNode>(root, renamingId);
     if (!node) return cancelRename();
     const name = renameValue.trim();
+    // A rename keeps a file within its current kind's extension family —
+    // an image stays an image (its content is a data URL, not source
+    // text) and vice versa, rather than the general "New file" schema
+    // (html/css/js only) that would reject renaming an uploaded image.
+    const fileNameSchema =
+      node.kind === "file" && webFileKindFromName(node.name) === "image"
+        ? webImageFileNameSchema
+        : webFileNameSchema;
     const parsed =
       node.kind === "file"
-        ? webFileNameSchema.safeParse(name)
+        ? fileNameSchema.safeParse(name)
         : webFolderNameSchema.safeParse(name);
     if (!parsed.success) {
       setRenameError(
         node.kind === "file"
-          ? validationMessage(webFileNameSchema.safeParse(name))
+          ? validationMessage(fileNameSchema.safeParse(name))
           : (parsed.error.issues[0]?.message ?? "Enter a folder name."),
       );
       return;
@@ -608,6 +683,14 @@ export function WebWorkbench() {
               </button>
               <button
                 type="button"
+                onClick={() => startUpload(node.id)}
+                aria-label={`Upload image to ${node.name}`}
+                className="text-ink-muted grid size-7 place-items-center"
+              >
+                <ImagePlus aria-hidden="true" size={12} />
+              </button>
+              <button
+                type="button"
                 onClick={() => startRename(node)}
                 aria-label={`Rename ${node.name}`}
                 className="text-ink-muted grid size-7 place-items-center"
@@ -644,11 +727,19 @@ export function WebWorkbench() {
           className={`${isActive ? "bg-elevated" : "hover:bg-elevated"} group rounded-control flex min-h-8 items-center gap-1 pr-1`}
           style={{ paddingLeft: depth * 14 + 22 }}
         >
-          <File
-            aria-hidden="true"
-            className="text-ink-muted shrink-0"
-            size={13}
-          />
+          {fileKind === "image" ? (
+            <ImageIcon
+              aria-hidden="true"
+              className="text-ink-muted shrink-0"
+              size={13}
+            />
+          ) : (
+            <File
+              aria-hidden="true"
+              className="text-ink-muted shrink-0"
+              size={13}
+            />
+          )}
           {isRenaming ? (
             renameInput()
           ) : (
@@ -712,8 +803,26 @@ export function WebWorkbench() {
             >
               <FolderPlus aria-hidden="true" size={13} />
             </button>
+            <button
+              type="button"
+              onClick={() => startUpload(ROOT_ID)}
+              disabled={uploading}
+              aria-label="Upload image"
+              className="text-ink-muted grid size-8 place-items-center disabled:opacity-50"
+            >
+              {uploading ? (
+                <Spinner size={13} />
+              ) : (
+                <ImagePlus aria-hidden="true" size={13} />
+              )}
+            </button>
           </div>
         </div>
+        {uploadError ? (
+          <p role="alert" className="text-danger px-3 py-1.5 text-[11px]">
+            {uploadError}
+          </p>
+        ) : null}
         <div className="p-2">
           {root.children.length === 0 && !draft ? (
             <p className="text-ink-muted px-2 py-3 text-[11px]">
@@ -732,6 +841,14 @@ export function WebWorkbench() {
       className={`${fullScreen ? "bg-canvas fixed inset-0 z-50 p-3" : ""} border-structural bg-deep rounded-panel min-w-0 overflow-hidden border`}
       aria-label="Web Workspace"
     >
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        onChange={handleImageSelected}
+        className="sr-only"
+        aria-label="Choose an image to upload"
+      />
       <div className="border-divider bg-surface flex min-h-12 min-w-0 flex-wrap items-center gap-1 border-b px-2 py-1.5">
         <button
           type="button"
@@ -815,7 +932,11 @@ export function WebWorkbench() {
                   onClick={() => activateTab(file.id)}
                   className="flex min-h-8 min-w-0 flex-1 items-center gap-2 text-left"
                 >
-                  <Braces aria-hidden="true" size={12} />
+                  {webFileKindFromName(file.name) === "image" ? (
+                    <ImageIcon aria-hidden="true" size={12} />
+                  ) : (
+                    <Braces aria-hidden="true" size={12} />
+                  )}
                   <span className="truncate">{file.name}</span>
                 </button>
                 <button
@@ -830,7 +951,19 @@ export function WebWorkbench() {
             ))}
           </div>
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-            {activeFile ? (
+            {activeFile && webFileKindFromName(activeFile.name) === "image" ? (
+              <div className="bg-canvas grid h-full place-items-center overflow-auto p-6">
+                {/* eslint-disable-next-line @next/next/no-img-element --
+                    already-inline base64 data URL of unknown, student-set
+                    dimensions — next/image's optimizer has nothing to fetch
+                    or resize here, so it'd add complexity with no benefit. */}
+                <img
+                  src={activeFile.sourceCode}
+                  alt={activeFile.name}
+                  className="max-h-full max-w-full rounded object-contain shadow-sm"
+                />
+              </div>
+            ) : activeFile ? (
               <CodeEditor
                 key={activeFile.id}
                 value={activeFile.sourceCode}
