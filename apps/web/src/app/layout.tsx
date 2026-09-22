@@ -4,6 +4,7 @@ import "@fontsource-variable/manrope";
 import "./globals.css";
 
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SerwistProvider } from "@serwist/turbopack/react";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
@@ -68,6 +69,7 @@ export default function RootLayout({
           </ThemeProvider>
         </SerwistProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
